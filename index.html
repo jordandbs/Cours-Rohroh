@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cours Rohroh!">
+<meta name="theme-color" content="#0a0a0f">
+<link rel="manifest" href="manifest.json">
+<title>Cours Rohroh!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <div class="page-container">
+
+    <!-- ÉCHAUFFEMENT -->
+    <div class="page active" id="page-warmup">
+      <div class="page-header">
+        <div class="page-title">Échauffement<span class="accent-dot">.</span></div>
+        <div class="page-subtitle">Prépare ton ptit corps de twirleuse</div>
+      </div>
+      <div class="section-label">Programmes</div>
+      <div class="card" onclick="openDetail('warmup-express')">
+        <div class="card-row">
+          <div class="card-icon" style="background:var(--accent-glow)">🔥</div>
+          <div class="card-content"><div class="card-title">Rapide – 5 min</div><div class="card-desc">Échauffement rapide avant de courir</div></div>
+          <div class="card-badge">5 exos</div>
+        </div>
+      </div>
+      <div class="card" onclick="openDetail('warmup-full')">
+        <div class="card-row">
+          <div class="card-icon" style="background:rgba(255,161,77,.12)">⚡</div>
+          <div class="card-content"><div class="card-title">Complet – 10 min</div><div class="card-desc">Bon échauffement smr</div></div>
+          <div class="card-badge">8 exos</div>
+        </div>
+      </div>
+      <div class="card" onclick="openDetail('warmup-intense')">
+        <div class="card-row">
+          <div class="card-icon" style="background:rgba(77,166,255,.12)">💪</div>
+          <div class="card-content"><div class="card-title">Pré-compèt – 15 min</div><div class="card-desc">Sur le praticable</div></div>
+          <div class="card-badge">12 exos</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COURSE -->
+    <div class="page" id="page-run">
+      <div class="page-header">
+        <div class="page-title">Course<span class="accent-dot">.</span></div>
+        <div class="page-subtitle">Lance le chrono et c'est tipar</div>
+      </div>
+      <div class="run-display">
+        <div class="run-time" id="run-timer">00:00<span class="ms">:00</span></div>
+        <div class="run-stats">
+          <div><div class="run-stat-value" id="run-dist">0.00</div><div class="run-stat-label">km</div></div>
+          <div><div class="run-stat-value" id="run-pace">--:--</div><div class="run-stat-label">min/km</div></div>
+          <div><div class="run-stat-value" id="run-cal">0</div><div class="run-stat-label">kcal</div></div>
+        </div>
+        <div class="run-controls">
+          <button class="run-btn-sm" id="btn-reset" style="visibility:hidden" onclick="resetRun()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6M23 20v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+          </button>
+          <button class="run-btn start" id="btn-run" onclick="toggleRun()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,3 20,12 6,21"/></svg>
+          </button>
+          <div style="width:50px"></div>
+        </div>
+      </div>
+      <div class="section-label">Cette semaine</div>
+      <div class="week-chart" id="week-chart"></div>
+      <div class="section-label">Historique</div>
+      <div id="history-list">
+        <div class="empty-state"><div class="emoji">👟</div><p>0 course, Rien, Nada<br>Va courir grognasse</p></div>
+      </div>
+    </div>
+
+    <!-- ÉTIREMENT -->
+    <div class="page" id="page-stretch">
+      <div class="page-header">
+        <div class="page-title">Étirements<span class="accent-dot">.</span></div>
+        <div class="page-subtitle">Récupère un poco loco</div>
+      </div>
+      <div class="section-label">Programmes</div>
+      <div class="card" onclick="openDetail('stretch-quick')">
+        <div class="card-row">
+          <div class="card-icon" style="background:var(--accent-glow)">🧘</div>
+          <div class="card-content"><div class="card-title">Récup rapide – 5 min</div><div class="card-desc">fais sinon t'auras mal à la cuisse</div></div>
+          <div class="card-badge">6 exos</div>
+        </div>
+      </div>
+      <div class="card" onclick="openDetail('stretch-full')">
+        <div class="card-row">
+          <div class="card-icon" style="background:rgba(255,71,87,.12)">🦵</div>
+          <div class="card-content"><div class="card-title">Jambes complètes – 12 min</div><div class="card-desc">ça va te détendre après</div></div>
+          <div class="card-badge">10 exos</div>
+        </div>
+      </div>
+      <div class="card" onclick="openDetail('stretch-deep')">
+        <div class="card-row">
+          <div class="card-icon" style="background:rgba(77,166,255,.12)">🌊</div>
+          <div class="card-content"><div class="card-title">Souplesse profonde – 20 min</div><div class="card-desc">Après un ptit 10km</div></div>
+          <div class="card-badge">14 exos</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPLORE -->
+    <div class="page" id="page-explore">
+      <div class="page-header">
+        <div class="page-title">Explore<span class="accent-dot">.</span></div>
+        <div class="page-subtitle">Cours partout un peu</div>
+      </div>
+    </div>
+
+    <!-- PROFIL -->
+    <div class="page" id="page-profile">
+      <div class="page-header">
+        <div class="page-title">Profil<span class="accent-dot">.</span></div>
+      </div>
+      <div class="profile-header">
+        <div class="avatar" id="profile-avatar">
+          <img src="/img/iconmaqprint.webp" alt="pp">
+        </div>
+        <div class="profile-name" id="profile-name">Romanette</div>
+        <div class="profile-edit-hint">Appuie pour modifier</div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-num" id="stat-runs">0</div><div class="stat-lbl">Courses</div></div>
+        <div class="stat-box"><div class="stat-num" id="stat-km">0</div><div class="stat-lbl">Km total</div></div>
+        <div class="stat-box"><div class="stat-num" id="stat-time">0h</div><div class="stat-lbl">Temps total</div></div>
+      </div>
+      <div class="section-label">Thème</div>
+      <div class="theme-selector">
+        <div class="theme-label">🎨 Apparence</div>
+        <div class="theme-options">
+          <div class="theme-opt selected" data-theme-id="dark" onclick="setTheme('dark')">
+            <div class="theme-opt-icon">🌙</div>
+            <div class="theme-opt-name">Sombre comme Maelys</div>
+            <div class="theme-dots">
+              <div class="theme-dot" style="background:#0a0a0f"></div>
+              <div class="theme-dot" style="background:#c8ff2e"></div>
+              <div class="theme-dot" style="background:#13131a"></div>
+            </div>
+          </div>
+          <div class="theme-opt" data-theme-id="light" onclick="setTheme('light')">
+            <div class="theme-opt-icon">☀️</div>
+            <div class="theme-opt-name">Clair</div>
+            <div class="theme-dots">
+              <div class="theme-dot" style="background:#f4f3f0"></div>
+              <div class="theme-dot" style="background:#e64a19"></div>
+              <div class="theme-dot" style="background:#ffffff"></div>
+            </div>
+          </div>
+          <div class="theme-opt" data-theme-id="pastel" onclick="setTheme('pastel')">
+            <div class="theme-opt-icon">🌸</div>
+            <div class="theme-opt-name">Rooooose</div>
+            <div class="theme-dots">
+              <div class="theme-dot" style="background:#fdf0f5"></div>
+              <div class="theme-dot" style="background:#e87aad"></div>
+              <div class="theme-dot" style="background:#fff5f9"></div>
+            </div>
+          </div>
+          <div class="theme-opt" data-theme-id="teckel" onclick="setTheme('teckel')">
+            <div class="theme-opt-icon">🌭</div>
+            <div class="theme-opt-name">Teckel</div>
+            <div class="theme-dots">
+              <div class="theme-dot" style="background:#2c1a0e"></div>
+              <div class="theme-dot" style="background:#e8a44a"></div>
+              <div class="theme-dot" style="background:#3d2816"></div>
+            </div>
+          </div>
+          <div class="theme-opt" data-theme-id="tulipes" onclick="setTheme('tulipes')">
+            <div class="theme-opt-icon">🌷</div>
+            <div class="theme-opt-name">Tulipes</div>
+            <div class="theme-dots">
+              <div class="theme-dot" style="background:#4a2c2a"></div>
+              <div class="theme-dot" style="background:#ff69b4"></div>
+              <div class="theme-dot" style="background:#5a3c3a"></div>
+            </div>
+          </div>
+          <div class="theme-opt" data-theme-id="dynosooor" onclick="setTheme('dynosooor')">
+            <div class="theme-opt-icon">🦕</div>
+            <div class="theme-opt-name">Dynosooor</div>
+            <div class="theme-dots">
+              <div class="theme-dot" style="background:#1a2818"></div>
+              <div class="theme-dot" style="background:#7ed957"></div>
+              <div class="theme-dot" style="background:#253822"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail overlay -->
+  <div class="detail-overlay" id="detail-overlay">
+    <button class="back-btn" onclick="closeDetail()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour
+    </button>
+    <div class="detail-title" id="detail-title"></div>
+    <div class="detail-desc" id="detail-desc"></div>
+    <div class="exercise-list" id="detail-exercises"></div>
+  </div>
+
+  <!-- Timer overlay -->
+  <div class="timer-overlay" id="timer-overlay">
+    <div class="timer-name" id="timer-name"></div>
+    <div class="timer-count" id="timer-count">30</div>
+    <div class="timer-progress"><div class="timer-bar" id="timer-bar"></div></div>
+    <div class="timer-btns">
+      <button class="timer-btn secondary" onclick="stopExTimer()">Arrêter</button>
+      <button class="timer-btn primary" onclick="skipExTimer()">Suivant ></button>
+    </div>
+  </div>
+
+  <!-- ===== MODAL PROFIL ===== -->
+  <div class="modal-overlay" id="profile-modal-overlay" onclick="closeProfileModal(event)">
+    <div class="modal-box">
+      <h3 class="modal-title">Modifier le profil</h3>
+
+      <div class="modal-avatar-preview">
+        <div class="modal-avatar-ring">
+          <img id="modal-avatar-img" src="/img/iconmaqprint.webp" alt="avatar">
+        </div>
+        <label class="avatar-upload-btn" for="avatar-file-input">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Changer la photo
+        </label>
+        <input type="file" id="avatar-file-input" accept="image/*" style="display:none" onchange="previewAvatar(event)">
+        <button class="avatar-reset-btn" onclick="resetAvatar()">Remettre le logo Maqrint</button>
+      </div>
+
+      <div class="modal-field">
+        <label class="modal-label">Pseudo</label>
+        <input type="text" id="modal-name-input" class="modal-input" placeholder="Ton pseudo..." maxlength="24">
+      </div>
+
+      <div class="modal-actions">
+        <button class="modal-btn cancel" onclick="closeProfileModal()">Annuler</button>
+        <button class="modal-btn save" onclick="saveProfile()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="nav-item active" data-page="warmup" onclick="switchPage('warmup')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
+      <span class="nav-label">Échauffe.</span>
+    </div>
+    <div class="nav-item" data-page="run" onclick="switchPage('run')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span class="nav-label">Course</span>
+    </div>
+    <div class="nav-item" data-page="explore" onclick="switchPage('explore')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s8-4.5 8-10a8 8 0 0 0-16 0c0 5.5 8 10 8 10z"/><circle cx="12" cy="11" r="3"/></svg>
+      <span class="nav-label">Explore</span>
+    </div>
+    <div class="nav-item" data-page="stretch" onclick="switchPage('stretch')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+      <span class="nav-label">Étirement</span>
+    </div>
+    <div class="nav-item" data-page="profile" onclick="switchPage('profile')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span class="nav-label">Profil</span>
+    </div>
+  </nav>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
