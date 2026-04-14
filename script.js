@@ -268,7 +268,7 @@ function renderHistory() {
         renderWeekChart(); return;
     }
     const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-    el.innerHTML = appData.runs.slice(0, 20).map(r => {
+    el.innerHTML = appData.runs.slice(0, 20).map((r, idx) => {
         const d = new Date(r.date); const dur = r.duration / 1000;
         const m = Math.floor(dur / 60); const s = Math.floor(dur % 60);
         const dist = r.distance || 0;
@@ -276,7 +276,23 @@ function renderHistory() {
         const feelingBadge = r.feelingEmoji ? `<span style="font-size:15px;margin-left:5px">${r.feelingEmoji}</span>` : '';
         const titleLine = r.title ? `<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:1px">${r.title}</div>` : '';
         const descLine  = r.description ? `<div style="font-size:10px;color:var(--text3);margin-top:1px;line-height:1.3">${r.description}</div>` : '';
-        return `<div class="history-item"><div class="hi-date"><div class="hi-day">${d.getDate()}</div><div class="hi-month">${months[d.getMonth()]}</div></div><div class="hi-info">${titleLine}<div class="hi-dist">${dist.toFixed(2)} km${feelingBadge}</div><div class="hi-meta">${m}min ${s}s</div>${descLine}</div><div class="hi-pace">${pace}<br><span style="font-size:9px;color:var(--text3)">min/km</span></div></div>`;
+        // Miniature média
+        let thumbHtml = '';
+        if (r.media && r.media.thumbnail) {
+            const isVid = r.media.type === 'video';
+            thumbHtml = `
+            <div class="hi-thumb-wrap" onclick="event.stopPropagation(); openMediaViewer(${idx})">
+              <img src="${r.media.thumbnail}" alt="media">
+              ${isVid ? '<div class="hi-thumb-video-icon">▶</div>' : ''}
+            </div>`;
+        }
+        const clickAttr = r.media ? `onclick="openMediaViewer(${idx})"` : '';
+        return `<div class="history-item" ${clickAttr}>
+          <div class="hi-date"><div class="hi-day">${d.getDate()}</div><div class="hi-month">${months[d.getMonth()]}</div></div>
+          <div class="hi-info">${titleLine}<div class="hi-dist">${dist.toFixed(2)} km${feelingBadge}</div><div class="hi-meta">${m}min ${s}s</div>${descLine}</div>
+          <div class="hi-pace">${pace}<br><span style="font-size:9px;color:var(--text3)">min/km</span></div>
+          ${thumbHtml}
+        </div>`;
     }).join('');
     renderWeekChart();
 }
@@ -291,6 +307,144 @@ function renderWeekChart() {
         const h = Math.max(4, (dk[i] / max) * 70);
         return `<div class="week-bar-wrap"><div class="week-bar ${dk[i] > 0 ? 'has-data' : ''}" style="height:${h}px"></div><div class="week-day">${d}</div></div>`;
     }).join('');
+}
+
+// ==================== MEDIA ====================
+let pendingMedia = null; // { type, thumbnail, fullData, videoObjectUrl }
+
+function compressImage(file, maxPx = 1000, quality = 0.72) {
+    return new Promise(resolve => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            let w = img.width, h = img.height;
+            if (w > maxPx || h > maxPx) {
+                if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+                else       { w = Math.round(w * maxPx / h); h = maxPx; }
+            }
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            c.getContext('2d').drawImage(img, 0, 0, w, h);
+            URL.revokeObjectURL(url);
+            resolve(c.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+        img.src = url;
+    });
+}
+
+function extractVideoThumb(file) {
+    return new Promise(resolve => {
+        const video = document.createElement('video');
+        const url   = URL.createObjectURL(file);
+        video.muted = true;
+        video.playsInline = true;
+        video.onloadeddata = () => { video.currentTime = 0.5; };
+        video.onseeked = () => {
+            const maxPx = 600;
+            let w = video.videoWidth, h = video.videoHeight;
+            if (w > maxPx || h > maxPx) {
+                if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+                else       { w = Math.round(w * maxPx / h); h = maxPx; }
+            }
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            c.getContext('2d').drawImage(video, 0, 0, w, h);
+            resolve({ thumbnail: c.toDataURL('image/jpeg', 0.7), videoObjectUrl: url });
+        };
+        video.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+        video.src = url;
+    });
+}
+
+async function handleMediaSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const isVideo = file.type.startsWith('video/');
+    const preview = document.getElementById('finish-media-preview');
+    const addBtn  = document.querySelector('.finish-media-add');
+
+    // Feedback chargement
+    addBtn.innerHTML = '<span>Caro la GOAT !<span>';
+
+    if (isVideo) {
+        const result = await extractVideoThumb(file);
+        if (!result) return;
+        pendingMedia = { type: 'video', thumbnail: result.thumbnail, videoObjectUrl: result.videoObjectUrl, fullData: null };
+    } else {
+        const compressed = await compressImage(file);
+        if (!compressed) return;
+        pendingMedia = { type: 'image', thumbnail: compressed, fullData: compressed, videoObjectUrl: null };
+    }
+
+    // Affiche aperçu
+    addBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Média ajouté ✓</span>`;
+    addBtn.classList.add('has-media');
+
+    preview.innerHTML = `
+    <div class="finish-media-thumb-wrap">
+      <img src="${pendingMedia.thumbnail}" alt="aperçu">
+      ${isVideo ? '<div class="finish-media-video-badge">▶ Vidéo</div>' : ''}
+      <button class="finish-media-remove" onclick="removePendingMedia()" type="button">✕</button>
+    </div>`;
+}
+
+function removePendingMedia() {
+    pendingMedia = null;
+    if (pendingMedia && pendingMedia.videoObjectUrl) URL.revokeObjectURL(pendingMedia.videoObjectUrl);
+    document.getElementById('finish-media-preview').innerHTML = '';
+    document.getElementById('finish-media-input').value = '';
+    const addBtn = document.querySelector('.finish-media-add');
+    addBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span>Ajouter une photo ou vidéo</span>`;
+    addBtn.classList.remove('has-media');
+}
+
+// ===== MEDIA VIEWER =====
+let activeVideoUrl = null; // garde en mémoire les URL des vidéos pour la session
+
+function openMediaViewer(runIndex) {
+    const run = appData.runs[runIndex];
+    if (!run) return;
+    const viewer  = document.getElementById('media-viewer');
+    const content = document.getElementById('media-viewer-content');
+    const info    = document.getElementById('media-viewer-info');
+
+    content.innerHTML = '';
+
+    const media = run.media;
+    if (!media) return;
+
+    if (media.type === 'image') {
+        content.innerHTML = `<img src="${media.fullData || media.thumbnail}" alt="photo">`;
+        info.textContent  = run.title || new Date(run.date).toLocaleDateString('fr-FR');
+    } else {
+        // Vidéo : utilise l'objectUrl en mémoire si disponible
+        const vurl = run._videoObjectUrl || null;
+        if (vurl) {
+            const vid = document.createElement('video');
+            vid.src = vurl; vid.controls = true; vid.playsInline = true;
+            vid.autoplay = true;
+            content.appendChild(vid);
+            info.textContent = run.title || new Date(run.date).toLocaleDateString('fr-FR');
+        } else {
+            // Plus de mémoire (appli relancée) → montre la miniature avec message
+            content.innerHTML = `<img src="${media.thumbnail}" alt="aperçu vidéo" style="opacity:.7">`;
+            info.textContent  = 'Plus de mémoire si tu as ca ro franchement bravo redemarre lapp et ouvre ta galerie';
+        }
+    }
+
+    viewer.classList.add('show');
+}
+
+function closeMediaViewer() {
+    const viewer  = document.getElementById('media-viewer');
+    const content = document.getElementById('media-viewer-content');
+    viewer.classList.remove('show');
+    // Arrête la vidéo si en cours
+    const vid = content.querySelector('video');
+    if (vid) { vid.pause(); vid.src = ''; }
+    content.innerHTML = '';
 }
 
 // ==================== FINISH MODAL ====================
@@ -328,6 +482,16 @@ function openFinishModal() {
     document.getElementById('fm-run-title').value = '';
     document.getElementById('fm-run-desc').value = '';
 
+    // Reset média
+    pendingMedia = null;
+    document.getElementById('finish-media-preview').innerHTML = '';
+    document.getElementById('finish-media-input').value = '';
+    const addBtn = document.querySelector('.finish-media-add');
+    if (addBtn) {
+        addBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span>Ajouter une photo ou vidéo</span>`;
+        addBtn.classList.remove('has-media');
+    }
+
     // Reset ressenti
     selectedFeeling = null;
     document.querySelectorAll('.feeling-btn').forEach(b => b.classList.remove('selected'));
@@ -352,7 +516,7 @@ function selectFeeling(idx) {
 function saveFinishedRun() {
     if (selectedFeeling === null || !finishRunData) return;
     const feelings   = ['😵', '😤', '😊', '😁', '🚀'];
-    const feelNames  = ['OSKUR', 'Maintenant ptite ruby', 'Ca vaaaa', 'Tranquillos', 'EZ'];
+    const feelNames  = ['OSKUR', 'Finito', 'Tranquilouuu', 'P\'tite ruby maintenant!', 'EZ'];
 
     // Allège les positions GPS pour le stockage
     const pts = finishRunData.positions;
@@ -362,7 +526,7 @@ function saveFinishedRun() {
     const runTitle = document.getElementById('fm-run-title').value.trim();
     const runDesc  = document.getElementById('fm-run-desc').value.trim();
 
-    appData.runs.unshift({
+    const newRun = {
         date:          finishRunData.date,
         duration:      finishRunData.elapsed,
         distance:      finishRunData.dist,
@@ -371,8 +535,20 @@ function saveFinishedRun() {
         feeling:       selectedFeeling,
         feelingEmoji:  feelings[selectedFeeling],
         feelingName:   feelNames[selectedFeeling],
-        positions:     savedPositions
-    });
+        positions:     savedPositions,
+        media:         pendingMedia ? {
+                           type:       pendingMedia.type,
+                           thumbnail:  pendingMedia.thumbnail,
+                           fullData:   pendingMedia.fullData
+                       } : null
+    };
+
+    // Garde l'objectUrl vidéo en mémoire (session uniquement)
+    if (pendingMedia && pendingMedia.videoObjectUrl) {
+        newRun._videoObjectUrl = pendingMedia.videoObjectUrl;
+    }
+
+    appData.runs.unshift(newRun);
     saveData(appData);
     visitedHexCache = null; // force recalcul des hexagones visités
 

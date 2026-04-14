@@ -315,6 +315,17 @@
       </button>
     </div>
 
+    <!-- Photos / Vidéos -->
+    <div class="finish-map-label">Photos / Vidéos</div>
+    <div class="finish-media-section">
+      <label class="finish-media-add" for="finish-media-input">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <span>Ajoute photo ou vidéo</span>
+      </label>
+      <input type="file" id="finish-media-input" accept="image/*,video/*" style="display:none" onchange="handleMediaSelect(event)">
+      <div class="finish-media-preview" id="finish-media-preview"></div>
+    </div>
+
     <!-- Actions -->
     <div class="finish-actions">
       <button class="modal-btn cancel" onclick="closeFinishModal()">Reprendre</button>
@@ -349,6 +360,15 @@
         <button class="modal-btn save" onclick="saveProfile()">Enregistrer</button>
       </div>
     </div>
+  </div>
+
+  <!-- ===== MEDIA VIEWER ===== -->
+  <div class="media-viewer" id="media-viewer" onclick="closeMediaViewer()">
+    <button class="media-viewer-close" onclick="closeMediaViewer()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="media-viewer-content" id="media-viewer-content" onclick="event.stopPropagation()"></div>
+    <div class="media-viewer-info" id="media-viewer-info"></div>
   </div>
 
   <!-- Navbar -->
