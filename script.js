@@ -351,7 +351,7 @@ function selectFeeling(idx) {
 function saveFinishedRun() {
     if (selectedFeeling === null || !finishRunData) return;
     const feelings   = ['😵', '😤', '😊', '😁', '🚀'];
-    const feelNames  = ['Épuisée', 'Difficile', 'Bien', 'Facile', 'En feu !'];
+    const feelNames  = ['OSKUR', 'Maintenant ptite ruby', 'Ca vaaaa', 'Tranquillos', 'EZ'];
 
     // Allège les positions GPS pour le stockage
     const pts = finishRunData.positions;
@@ -750,7 +750,7 @@ function renderHexGrid() {
         if (visitedCount > 0)
             statsEl.textContent = `🔷 ${visitedCount} hexagone${visitedCount>1?'s':''} exploré${visitedCount>1?'s':''} sur ${total} visible${total>1?'s':''}`;
         else
-            statsEl.textContent = `${total} hexagone${total>1?'s':''} à explorer — Lance une course !`;
+            statsEl.textContent = `${total} hexagone${total>1?'s':''} à explorer — VA COURIR ZEBI`;
     }
 }
 
