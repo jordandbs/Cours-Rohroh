@@ -67,7 +67,9 @@
           <button class="run-btn start" id="btn-run" onclick="toggleRun()">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,3 20,12 6,21"/></svg>
           </button>
-          <div style="width:50px"></div>
+          <button class="run-btn-sm" id="btn-finish" style="visibility:hidden" onclick="openFinishModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>
         </div>
       </div>
       <div class="section-label">Cette semaine</div>
@@ -214,6 +216,66 @@
     <div class="timer-btns">
       <button class="timer-btn secondary" onclick="stopExTimer()">Arrêter</button>
       <button class="timer-btn primary" onclick="skipExTimer()">Suivant ></button>
+    </div>
+  </div>
+
+  <!-- ===== MODAL FIN DE COURSE ===== -->
+  <div class="finish-overlay" id="finish-overlay">
+    <div class="finish-header">
+      <button class="finish-close-btn" onclick="closeFinishModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="finish-title">Course terminée 🏁</div>
+    </div>
+
+    <!-- Stats de la course -->
+    <div class="finish-stats-row">
+      <div class="finish-stat"><div class="finish-stat-val" id="fm-dist">0.00</div><div class="finish-stat-lbl">km</div></div>
+      <div class="finish-stat-sep"></div>
+      <div class="finish-stat"><div class="finish-stat-val" id="fm-time">0:00</div><div class="finish-stat-lbl">durée</div></div>
+      <div class="finish-stat-sep"></div>
+      <div class="finish-stat"><div class="finish-stat-val" id="fm-pace">--:--</div><div class="finish-stat-lbl">min/km</div></div>
+    </div>
+
+    <!-- Tracé du parcours -->
+    <div class="finish-map-label">Tracé du parcours</div>
+    <div class="finish-map-wrap">
+      <canvas id="finish-route-canvas"></canvas>
+      <div class="finish-map-empty" id="finish-map-empty">
+        <div style="font-size:32px;margin-bottom:8px">📍</div>
+        <div>Pas de données GPS</div>
+      </div>
+    </div>
+
+    <!-- Ressenti -->
+    <div class="finish-map-label">Comment tu t'es sentie ?</div>
+    <div class="finish-feelings">
+      <button class="feeling-btn" onclick="selectFeeling(0)">
+        <span class="feeling-emoji">😵</span>
+        <span class="feeling-lbl">Épuisée</span>
+      </button>
+      <button class="feeling-btn" onclick="selectFeeling(1)">
+        <span class="feeling-emoji">😤</span>
+        <span class="feeling-lbl">Difficile</span>
+      </button>
+      <button class="feeling-btn" onclick="selectFeeling(2)">
+        <span class="feeling-emoji">😊</span>
+        <span class="feeling-lbl">Bien</span>
+      </button>
+      <button class="feeling-btn" onclick="selectFeeling(3)">
+        <span class="feeling-emoji">😁</span>
+        <span class="feeling-lbl">Facile</span>
+      </button>
+      <button class="feeling-btn" onclick="selectFeeling(4)">
+        <span class="feeling-emoji">🚀</span>
+        <span class="feeling-lbl">En feu !</span>
+      </button>
+    </div>
+
+    <!-- Actions -->
+    <div class="finish-actions">
+      <button class="modal-btn cancel" onclick="closeFinishModal()">Reprendre</button>
+      <button class="modal-btn save" id="btn-save-run" onclick="saveFinishedRun()">Enregistrer</button>
     </div>
   </div>
 

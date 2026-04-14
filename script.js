@@ -191,10 +191,26 @@ function tickRun() {
     if (totalDist > 0.01) { const pS = (total / 1000) / totalDist; document.getElementById('run-pace').textContent = `${Math.floor(pS / 60)}:${String(Math.floor(pS % 60)).padStart(2, '0')}`; }
 }
 function updateRunUI() {
-    const btn = document.getElementById('btn-run'), reset = document.getElementById('btn-reset');
-    if (runState === 'idle') { btn.className = 'run-btn start'; btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,3 20,12 6,21"/></svg>'; reset.style.visibility = 'hidden'; }
-    else if (runState === 'running') { btn.className = 'run-btn pause pulsing'; btn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="3" width="5" height="18" rx="1"/><rect x="14" y="3" width="5" height="18" rx="1"/></svg>'; reset.style.visibility = 'visible'; }
-    else { btn.className = 'run-btn start'; btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,3 20,12 6,21"/></svg>'; reset.style.visibility = 'visible'; }
+    const btn = document.getElementById('btn-run');
+    const reset = document.getElementById('btn-reset');
+    const finish = document.getElementById('btn-finish');
+    if (runState === 'idle') {
+        btn.className = 'run-btn start';
+        btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,3 20,12 6,21"/></svg>';
+        reset.style.visibility = 'hidden';
+        finish.style.visibility = 'hidden';
+    } else if (runState === 'running') {
+        btn.className = 'run-btn pause pulsing';
+        btn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="3" width="5" height="18" rx="1"/><rect x="14" y="3" width="5" height="18" rx="1"/></svg>';
+        reset.style.visibility = 'visible';
+        finish.style.visibility = 'hidden';
+    } else {
+        // paused
+        btn.className = 'run-btn start';
+        btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,3 20,12 6,21"/></svg>';
+        reset.style.visibility = 'visible';
+        finish.style.visibility = 'visible';
+    }
 }
 function startGPS() {
     if (!navigator.geolocation) return;
@@ -227,7 +243,8 @@ function renderHistory() {
         const m = Math.floor(dur / 60); const s = Math.floor(dur % 60);
         const dist = r.distance || 0;
         const pace = dist > 0.01 ? (() => { const p = dur / dist; return `${Math.floor(p / 60)}:${String(Math.floor(p % 60)).padStart(2, '0')}`; })() : '--:--';
-        return `<div class="history-item"><div class="hi-date"><div class="hi-day">${d.getDate()}</div><div class="hi-month">${months[d.getMonth()]}</div></div><div class="hi-info"><div class="hi-dist">${dist.toFixed(2)} km</div><div class="hi-meta">${m}min ${s}s</div></div><div class="hi-pace">${pace}<br><span style="font-size:9px;color:var(--text3)">min/km</span></div></div>`;
+        const feelingBadge = r.feelingEmoji ? `<span style="font-size:16px;margin-left:6px" title="${r.feelingName || ''}">${r.feelingEmoji}</span>` : '';
+        return `<div class="history-item"><div class="hi-date"><div class="hi-day">${d.getDate()}</div><div class="hi-month">${months[d.getMonth()]}</div></div><div class="hi-info"><div class="hi-dist">${dist.toFixed(2)} km${feelingBadge}</div><div class="hi-meta">${m}min ${s}s</div></div><div class="hi-pace">${pace}<br><span style="font-size:9px;color:var(--text3)">min/km</span></div></div>`;
     }).join('');
     renderWeekChart();
 }
@@ -242,6 +259,173 @@ function renderWeekChart() {
         const h = Math.max(4, (dk[i] / max) * 70);
         return `<div class="week-bar-wrap"><div class="week-bar ${dk[i] > 0 ? 'has-data' : ''}" style="height:${h}px"></div><div class="week-day">${d}</div></div>`;
     }).join('');
+}
+
+// ==================== FINISH MODAL ====================
+let selectedFeeling = null;
+let finishRunData = null;
+
+function openFinishModal() {
+    // Pause si en cours
+    if (runState === 'running') pauseRun();
+
+    // Capture des données
+    const elapsed = runElapsed;
+    const s = Math.floor(elapsed / 1000);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+
+    finishRunData = {
+        elapsed,
+        dist: totalDist,
+        positions: [...runPositions],
+        date: new Date().toISOString()
+    };
+
+    // Affiche les stats
+    document.getElementById('fm-dist').textContent = totalDist.toFixed(2);
+    document.getElementById('fm-time').textContent = `${m}:${String(sec).padStart(2, '0')}`;
+    if (totalDist > 0.01) {
+        const pS = (elapsed / 1000) / totalDist;
+        document.getElementById('fm-pace').textContent = `${Math.floor(pS / 60)}:${String(Math.floor(pS % 60)).padStart(2, '0')}`;
+    } else {
+        document.getElementById('fm-pace').textContent = '--:--';
+    }
+
+    // Reset ressenti
+    selectedFeeling = null;
+    document.querySelectorAll('.feeling-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('btn-save-run').disabled = true;
+
+    // Dessine le tracé (avec délai pour que le DOM soit visible)
+    document.getElementById('finish-overlay').classList.add('show');
+    setTimeout(() => drawRoute(runPositions), 50);
+}
+
+function closeFinishModal() {
+    document.getElementById('finish-overlay').classList.remove('show');
+}
+
+function selectFeeling(idx) {
+    selectedFeeling = idx;
+    document.querySelectorAll('.feeling-btn').forEach((b, i) => b.classList.toggle('selected', i === idx));
+    document.getElementById('btn-save-run').disabled = false;
+}
+
+function saveFinishedRun() {
+    if (selectedFeeling === null || !finishRunData) return;
+    const feelings   = ['😵', '😤', '😊', '😁', '🚀'];
+    const feelNames  = ['Épuisée', 'Difficile', 'Bien', 'Facile', 'En feu !'];
+
+    // Allège les positions GPS pour le stockage
+    const pts = finishRunData.positions;
+    const step = pts.length > 120 ? Math.ceil(pts.length / 120) : 1;
+    const savedPositions = pts.filter((_, i) => i % step === 0);
+
+    appData.runs.unshift({
+        date:          finishRunData.date,
+        duration:      finishRunData.elapsed,
+        distance:      finishRunData.dist,
+        feeling:       selectedFeeling,
+        feelingEmoji:  feelings[selectedFeeling],
+        feelingName:   feelNames[selectedFeeling],
+        positions:     savedPositions
+    });
+    saveData(appData);
+
+    // Reset complet
+    closeFinishModal();
+    runState = 'idle';
+    clearInterval(runInterval);
+    stopGPS();
+    runElapsed = 0; totalDist = 0; runPositions = [];
+    document.getElementById('run-timer').innerHTML = '00:00<span class="ms">:00</span>';
+    document.getElementById('run-dist').textContent = '0.00';
+    document.getElementById('run-pace').textContent = '--:--';
+    document.getElementById('run-cal').textContent = '0';
+    updateRunUI();
+    renderHistory();
+}
+
+function drawRoute(positions) {
+    const canvas  = document.getElementById('finish-route-canvas');
+    const emptyEl = document.getElementById('finish-map-empty');
+
+    if (!positions || positions.length < 2) {
+        canvas.style.display = 'none';
+        emptyEl.style.display = 'flex';
+        return;
+    }
+    canvas.style.display = 'block';
+    emptyEl.style.display = 'none';
+
+    // Dimensions réelles du conteneur
+    const wrap = canvas.parentElement;
+    const W = wrap.offsetWidth  || 300;
+    const H = wrap.offsetHeight || 210;
+    canvas.width  = W;
+    canvas.height = H;
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    // Couleur accent depuis les variables CSS
+    const accentColor = getComputedStyle(document.documentElement)
+        .getPropertyValue('--accent').trim() || '#c8ff2e';
+    const bgColor = getComputedStyle(document.documentElement)
+        .getPropertyValue('--surface').trim() || '#13131a';
+
+    // Fond
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, W, H);
+
+    const lats = positions.map(p => p.lat);
+    const lngs = positions.map(p => p.lng);
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+    const latRange = maxLat - minLat || 0.0001;
+    const lngRange = maxLng - minLng || 0.0001;
+
+    const pad = 32;
+    const w = W - pad * 2;
+    const h = H - pad * 2;
+
+    const project = p => ({
+        x: (p.lng - minLng) / lngRange * w + pad,
+        y: (1 - (p.lat - minLat) / latRange) * h + pad
+    });
+
+    // Tracé avec dégradé
+    const grad = ctx.createLinearGradient(pad, pad, pad + w, pad + h);
+    grad.addColorStop(0, accentColor + '88');
+    grad.addColorStop(1, accentColor);
+
+    ctx.beginPath();
+    const p0 = project(positions[0]);
+    ctx.moveTo(p0.x, p0.y);
+    for (let i = 1; i < positions.length; i++) {
+        const pt = project(positions[i]);
+        ctx.lineTo(pt.x, pt.y);
+    }
+    ctx.strokeStyle = grad;
+    ctx.lineWidth   = 3.5;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.stroke();
+
+    // Point départ (vert)
+    const sp = project(positions[0]);
+    ctx.beginPath();
+    ctx.arc(sp.x, sp.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#4cff72';
+    ctx.fill();
+
+    // Point arrivée (rouge)
+    const ep = project(positions[positions.length - 1]);
+    ctx.beginPath();
+    ctx.arc(ep.x, ep.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff4757';
+    ctx.fill();
 }
 
 // ==================== EXPLORE MAP ====================
