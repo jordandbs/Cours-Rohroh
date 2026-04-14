@@ -500,9 +500,9 @@ function openFinishModal() {
     document.querySelectorAll('.feeling-btn').forEach(b => b.classList.remove('selected'));
     document.getElementById('btn-save-run').disabled = true;
 
-    // Affiche le modal puis initialise la carte Leaflet
+    // Affiche le modal, attend la fin de l'animation (320ms) puis initialise Leaflet
     document.getElementById('finish-overlay').classList.add('show');
-    setTimeout(() => initFinishMap(runPositions), 100);
+    setTimeout(() => initFinishMap(runPositions), 380);
 }
 
 function closeFinishModal() {
@@ -609,10 +609,15 @@ function initFinishMap(positions) {
             radius: 7, fillColor: '#ff4757', color: '#fff', weight: 2, fillOpacity: 1, opacity: 1
         }).addTo(finishRouteMap);
 
-        finishRouteMap.fitBounds(poly.getBounds().pad(0.3));
+        // fitBounds après invalidateSize pour que les dimensions soient correctes
+        setTimeout(() => {
+            if (!finishRouteMap) return;
+            finishRouteMap.invalidateSize();
+            finishRouteMap.fitBounds(poly.getBounds().pad(0.25));
+        }, 100);
+    } else {
+        setTimeout(() => finishRouteMap && finishRouteMap.invalidateSize(), 100);
     }
-
-    setTimeout(() => finishRouteMap && finishRouteMap.invalidateSize(), 150);
 }
 
 // ==================== EXPLORE MAP ====================

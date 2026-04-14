@@ -1073,6 +1073,7 @@ html { background: var(--bg); }
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex-shrink: 0;
 }
 .finish-media-add {
   display: flex;
@@ -1253,29 +1254,43 @@ html { background: var(--bg); }
   background: var(--bg);
   z-index: 180;
   display: none;
-  flex-direction: column;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 16px 16px;
-  padding-top: calc(16px + var(--safe-top));
-  padding-bottom: calc(var(--nav-h) + var(--safe-bottom));
+  overflow: hidden;           /* Le scroll est géré par .finish-scroll */
   animation: slideUp 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   transition: background 0.4s;
 }
-.finish-overlay.show { display: flex; }
+.finish-overlay.show { display: block; }
 @keyframes slideUp {
   from { transform: translateY(60px); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
 }
 
+/* Conteneur scrollable interne — garantit que le scroll fonctionne
+   indépendamment du flexbox et que les hauteurs fixes sont respectées */
+.finish-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  padding-top: calc(16px + var(--safe-top));
+  padding-bottom: calc(var(--nav-h) + var(--safe-bottom) + 20px);
+  box-sizing: border-box;
+}
+
+/* Header */
 .finish-header {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 20px;
+  flex-shrink: 0;
 }
 .finish-close-btn {
-  width: 38px; height: 38px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: var(--surface2);
   border: none;
@@ -1292,43 +1307,7 @@ html { background: var(--bg); }
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.02em;
-}
-
-/* Champs titre / description */
-.finish-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-.finish-input,
-.finish-textarea {
-  background: var(--surface);
-  border: 1.5px solid var(--card-border);
-  border-radius: 12px;
-  padding: 12px 14px;
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 500;
-  font-family: "Outfit", sans-serif;
-  outline: none;
-  width: 100%;
-  transition: border-color 0.2s, background 0.4s;
-  -webkit-user-select: text;
-  user-select: text;
-}
-.finish-input:focus,
-.finish-textarea:focus {
-  border-color: var(--accent);
-}
-.finish-input::placeholder,
-.finish-textarea::placeholder {
-  color: var(--text3);
-  font-weight: 400;
-}
-.finish-textarea {
-  resize: none;
-  line-height: 1.5;
+  flex: 1;
 }
 
 /* Stats row */
@@ -1341,6 +1320,7 @@ html { background: var(--bg); }
   padding: 20px 16px;
   margin-bottom: 20px;
   border: 1px solid var(--card-border);
+  flex-shrink: 0;
   transition: background 0.4s, border-color 0.4s;
 }
 .finish-stat { text-align: center; }
@@ -1364,7 +1344,38 @@ html { background: var(--bg); }
   background: var(--line);
 }
 
-/* Map */
+/* Champs titre / description */
+.finish-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+.finish-input,
+.finish-textarea {
+  background: var(--surface);
+  border: 1.5px solid var(--card-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: "Outfit", sans-serif;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.2s, background 0.4s;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.finish-input:focus,
+.finish-textarea:focus { border-color: var(--accent); }
+.finish-input::placeholder,
+.finish-textarea::placeholder { color: var(--text3); font-weight: 400; }
+.finish-textarea { resize: none; line-height: 1.5; }
+
+/* Séparateur de section (label avec trait) */
 .finish-map-label {
   font-size: 11px;
   font-weight: 700;
@@ -1375,6 +1386,7 @@ html { background: var(--bg); }
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 .finish-map-label::after {
   content: "";
@@ -1382,22 +1394,29 @@ html { background: var(--bg); }
   height: 1px;
   background: var(--line);
 }
+
+/* ——— CARTE DU TRACÉ ——— */
+/* Hauteur fixe garantie, ne peut pas se comprimer */
 .finish-map-wrap {
+  width: 100%;
+  height: 220px;             /* hauteur fixe explicite */
+  min-height: 220px;         /* ne peut pas se réduire */
+  flex-shrink: 0;            /* le flex ne la comprimera jamais */
+  position: relative;
   border-radius: var(--radius);
   overflow: hidden;
-  height: 150px;
-  margin-bottom: 20px;
-  position: relative;
   background: var(--surface);
   border: 1px solid var(--card-border);
+  margin-bottom: 20px;
   transition: background 0.4s, border-color 0.4s;
 }
 #finish-route-map {
   position: absolute;
-  inset: 0;
+  top: 0; left: 0;
   width: 100%;
   height: 100%;
   z-index: 0;
+  display: block;
 }
 .finish-map-empty {
   position: absolute;
@@ -1414,11 +1433,12 @@ html { background: var(--bg); }
   pointer-events: none;
 }
 
-/* Ressenti */
+/* ——— RESSENTI ——— */
 .finish-feelings {
   display: flex;
   gap: 7px;
   margin-bottom: 24px;
+  flex-shrink: 0;
 }
 .feeling-btn {
   flex: 1;
@@ -1450,14 +1470,15 @@ html { background: var(--bg); }
 }
 .feeling-btn.selected .feeling-lbl { color: var(--text); }
 
-/* Actions */
+/* ——— ACTIONS ——— */
 .finish-actions {
   display: flex;
   gap: 10px;
+  flex-shrink: 0;
+  margin-top: auto;          /* pousse vers le bas quand contenu court */
+  padding-top: 4px;
 }
-.finish-actions .modal-btn {
-  flex: 1;
-}
+.finish-actions .modal-btn { flex: 1; }
 .finish-actions .modal-btn[disabled],
 #btn-save-run[disabled] {
   opacity: 0.35;
