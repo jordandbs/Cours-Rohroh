@@ -162,9 +162,9 @@
       </div>
       <div class="profile-header">
         <div class="avatar" id="profile-avatar">
-          <img src="/img/iconmaqprint.webp" alt="pp">
+          <img src="/img/ROHROH.PNG" alt="pp">
         </div>
-        <div class="profile-name" id="profile-name">Romanette</div>
+        <div class="profile-name" id="profile-name"></div>
         <div class="profile-edit-hint">Appuie pour modifier</div>
       </div>
       <div class="stat-grid">
@@ -232,6 +232,10 @@
           </div>
         </div>
       </div>
+      <button class="logout-btn" onclick="logout()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Se déconnecter
+      </button>
     </div>
   </div>
 
@@ -342,7 +346,7 @@
 
       <div class="modal-avatar-preview">
         <div class="modal-avatar-ring">
-          <img id="modal-avatar-img" src="/img/iconmaqprint.webp" alt="avatar">
+          <img id="modal-avatar-img" src="/img/ROHROH.PNG" alt="avatar">
         </div>
         <label class="avatar-upload-btn" for="avatar-file-input">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -386,6 +390,52 @@
     <div class="media-viewer-info" id="media-viewer-info"></div>
   </div>
 
+  <!-- ===== AUTH OVERLAY ===== -->
+  <div class="auth-overlay" id="auth-overlay">
+    <!-- Spinner pendant la vérification de session -->
+    <div class="auth-loading" id="auth-loading">
+      <img src="/img/ROHROH.PNG" class="auth-logo-spin" alt="Rohroh">
+    </div>
+    <!-- Formulaires login / inscription -->
+    <div class="auth-box" id="auth-box" style="display:none">
+      <div class="auth-logo-wrap">
+        <img src="/img/ROHROH.PNG" class="auth-logo" alt="Rohroh">
+      </div>
+      <div class="auth-title">Cours Rohroh<span class="accent-dot">!</span></div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="auth-tab-login" onclick="switchAuthTab('login')">Connexion</button>
+        <button class="auth-tab" id="auth-tab-register" onclick="switchAuthTab('register')">Inscription</button>
+      </div>
+      <!-- Connexion -->
+      <div class="auth-form active" id="auth-form-login">
+        <input type="text" id="login-id" class="auth-input" placeholder="Identifiant" autocomplete="username" autocapitalize="none">
+        <input type="password" id="login-pwd" class="auth-input" placeholder="Mot de passe" autocomplete="current-password">
+        <div class="auth-error" id="login-err"></div>
+        <button class="auth-submit" id="btn-login" onclick="doLogin()">Se connecter</button>
+      </div>
+      <!-- Inscription -->
+      <div class="auth-form" id="auth-form-register">
+        <input type="text" id="reg-id" class="auth-input" placeholder="Identifiant" autocomplete="username" autocapitalize="none">
+        <input type="password" id="reg-pwd" class="auth-input" placeholder="Mot de passe" autocomplete="new-password">
+        <div class="auth-error" id="reg-err"></div>
+        <button class="auth-submit" id="btn-register" onclick="doRegister()">Créer mon compte</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL DÉCONNEXION ===== -->
+  <div class="modal-overlay" id="logout-modal-overlay" onclick="cancelLogout(event)">
+    <div class="modal-box" style="max-width:300px;text-align:center">
+      <div style="font-size:32px;margin-bottom:4px">👋</div>
+      <h3 class="modal-title">Se déconnecter ?</h3>
+      <p style="font-size:13px;color:var(--text2);margin-top:6px">Tu devras te reconnecter la prochaine fois</p>
+      <div class="modal-actions" style="margin-top:20px">
+        <button class="modal-btn cancel" onclick="cancelLogout()">Annuler</button>
+        <button class="modal-btn save" style="background:var(--red)" onclick="confirmLogout()">Déconnecter</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Navbar -->
   <nav class="navbar">
     <div class="nav-item active" data-page="warmup" onclick="switchPage('warmup')">
@@ -414,6 +464,8 @@
     </div>
   </nav>
 </div>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="script.js"></script>
 </body>
