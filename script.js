@@ -1,15 +1,4 @@
-// ==================== FIREBASE CONFIG ====================
-// ⚠️  REMPLACE ces valeurs par ta config Firebase !
-// Console Firebase → ton projet → ⚙️ Paramètres → Config de l'app web
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDhTp70Rohyu48Nd6RAZxBvpnQrWHQxtvY",
-  authDomain: "cours-rohroh.firebaseapp.com",
-  projectId: "cours-rohroh",
-  storageBucket: "cours-rohroh.firebasestorage.app",
-  messagingSenderId: "1015706458748",
-  appId: "1:1015706458748:web:d70884d485ba53cab087f9",
-  measurementId: "G-4PN8JH80NB",
-};
+// La config Firebase est chargée depuis firebase-config.js (généré par GitHub Actions, jamais commité)
 
 // ==================== DATA ====================
 const programs = {
@@ -181,7 +170,7 @@ const programs = {
 // ==================== STORAGE ====================
 const STORAGE_KEY = "coursrohroh_data";
 const SESSION_KEY = "rohroh_session";
-const DEFAULT_AVATAR = "/img/rohroh.png";
+const DEFAULT_AVATAR = "img/rohroh.png";
 
 let db = null;
 let currentUser = null; // { username, displayName }
@@ -1883,4 +1872,4 @@ function switchPage(page) {
 // ==================== INIT ====================
 firebase.initializeApp(FIREBASE_CONFIG);
 db = firebase.firestore();
-checkSession();
+checkSession();                                                               
