@@ -11,6 +11,7 @@
 <title>Cours Rohroh!</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -112,9 +113,18 @@
 
     <!-- EXPLORE -->
     <div class="page" id="page-explore">
-      <div class="page-header">
-        <div class="page-title">Explore<span class="accent-dot">.</span></div>
-        <div class="page-subtitle">Cours partout un peu</div>
+      <div class="explore-topbar">
+        <div>
+          <div class="page-title">Explore<span class="accent-dot">.</span></div>
+          <div class="page-subtitle">Tes parcours sur la carte</div>
+        </div>
+        <button class="explore-locate-btn" id="btn-locate" onclick="locateUser()" title="Me localiser">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 3"/></svg>
+        </button>
+      </div>
+      <div id="explore-map"></div>
+      <div class="explore-runs-bar" id="explore-runs-bar" style="display:none">
+        <span class="explore-runs-label" id="explore-runs-label"></span>
       </div>
     </div>
 
@@ -237,6 +247,12 @@
       <div class="finish-stat"><div class="finish-stat-val" id="fm-pace">--:--</div><div class="finish-stat-lbl">min/km</div></div>
     </div>
 
+    <!-- Titre et description -->
+    <div class="finish-fields">
+      <input type="text" id="fm-run-title" class="finish-input" placeholder="Nom de la course (optionnel)" maxlength="40">
+      <textarea id="fm-run-desc" class="finish-textarea" placeholder="Des notes sur ta course... (optionnel)" maxlength="200" rows="2"></textarea>
+    </div>
+
     <!-- Tracé du parcours -->
     <div class="finish-map-label">Tracé du parcours</div>
     <div class="finish-map-wrap">
@@ -332,6 +348,7 @@
     </div>
   </nav>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

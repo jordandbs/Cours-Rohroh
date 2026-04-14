@@ -103,6 +103,7 @@ function setTheme(id) {
     document.querySelectorAll('.theme-opt').forEach(el => {
         el.classList.toggle('selected', el.dataset.themeId === id);
     });
+    updateMapTiles();
 }
 
 // ==================== DETAIL VIEW ====================
@@ -212,16 +213,45 @@ function updateRunUI() {
         finish.style.visibility = 'visible';
     }
 }
+function setGPSStatus(status) {
+    // status: 'searching' | 'ok' | 'error' | 'off'
+    const distEl = document.getElementById('run-dist');
+    if (!distEl) return;
+    const icons = { searching: '📡', ok: '', error: '📵', off: '' };
+    if (status === 'searching') distEl.style.opacity = '0.5';
+    else distEl.style.opacity = '1';
+}
+
 function startGPS() {
-    if (!navigator.geolocation) return;
-    watchId = navigator.geolocation.watchPosition(pos => {
-        const p = { lat: pos.coords.latitude, lng: pos.coords.longitude, time: Date.now() };
-        if (runPositions.length > 0) {
-            const last = runPositions[runPositions.length - 1];
-            const d = haversine(last.lat, last.lng, p.lat, p.lng);
-            if (d > 0.003) { totalDist += d; document.getElementById('run-dist').textContent = totalDist.toFixed(2); runPositions.push(p); }
-        } else { runPositions.push(p); }
-    }, null, { enableHighAccuracy: true, maximumAge: 2000 });
+    if (!navigator.geolocation) {
+        setGPSStatus('error');
+        return;
+    }
+    setGPSStatus('searching');
+    watchId = navigator.geolocation.watchPosition(
+        pos => {
+            setGPSStatus('ok');
+            const p = { lat: pos.coords.latitude, lng: pos.coords.longitude, time: Date.now() };
+            if (runPositions.length > 0) {
+                const last = runPositions[runPositions.length - 1];
+                const d = haversine(last.lat, last.lng, p.lat, p.lng);
+                // Seuil de 2m pour éviter le bruit GPS, mais on accepte quand même
+                if (d > 0.002) {
+                    totalDist += d;
+                    document.getElementById('run-dist').textContent = totalDist.toFixed(2);
+                    runPositions.push(p);
+                }
+            } else {
+                runPositions.push(p);
+            }
+        },
+        err => {
+            console.warn('GPS error:', err.code, err.message);
+            setGPSStatus('error');
+            // Codes : 1=PERMISSION_DENIED, 2=UNAVAILABLE, 3=TIMEOUT
+        },
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
+    );
 }
 function stopGPS() { if (watchId !== null) navigator.geolocation.clearWatch(watchId); watchId = null; }
 function haversine(lat1, lon1, lat2, lon2) {
@@ -243,8 +273,10 @@ function renderHistory() {
         const m = Math.floor(dur / 60); const s = Math.floor(dur % 60);
         const dist = r.distance || 0;
         const pace = dist > 0.01 ? (() => { const p = dur / dist; return `${Math.floor(p / 60)}:${String(Math.floor(p % 60)).padStart(2, '0')}`; })() : '--:--';
-        const feelingBadge = r.feelingEmoji ? `<span style="font-size:16px;margin-left:6px" title="${r.feelingName || ''}">${r.feelingEmoji}</span>` : '';
-        return `<div class="history-item"><div class="hi-date"><div class="hi-day">${d.getDate()}</div><div class="hi-month">${months[d.getMonth()]}</div></div><div class="hi-info"><div class="hi-dist">${dist.toFixed(2)} km${feelingBadge}</div><div class="hi-meta">${m}min ${s}s</div></div><div class="hi-pace">${pace}<br><span style="font-size:9px;color:var(--text3)">min/km</span></div></div>`;
+        const feelingBadge = r.feelingEmoji ? `<span style="font-size:15px;margin-left:5px">${r.feelingEmoji}</span>` : '';
+        const titleLine = r.title ? `<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:1px">${r.title}</div>` : '';
+        const descLine  = r.description ? `<div style="font-size:10px;color:var(--text3);margin-top:1px;line-height:1.3">${r.description}</div>` : '';
+        return `<div class="history-item"><div class="hi-date"><div class="hi-day">${d.getDate()}</div><div class="hi-month">${months[d.getMonth()]}</div></div><div class="hi-info">${titleLine}<div class="hi-dist">${dist.toFixed(2)} km${feelingBadge}</div><div class="hi-meta">${m}min ${s}s</div>${descLine}</div><div class="hi-pace">${pace}<br><span style="font-size:9px;color:var(--text3)">min/km</span></div></div>`;
     }).join('');
     renderWeekChart();
 }
@@ -292,6 +324,10 @@ function openFinishModal() {
         document.getElementById('fm-pace').textContent = '--:--';
     }
 
+    // Reset champs texte
+    document.getElementById('fm-run-title').value = '';
+    document.getElementById('fm-run-desc').value = '';
+
     // Reset ressenti
     selectedFeeling = null;
     document.querySelectorAll('.feeling-btn').forEach(b => b.classList.remove('selected'));
@@ -322,10 +358,15 @@ function saveFinishedRun() {
     const step = pts.length > 120 ? Math.ceil(pts.length / 120) : 1;
     const savedPositions = pts.filter((_, i) => i % step === 0);
 
+    const runTitle = document.getElementById('fm-run-title').value.trim();
+    const runDesc  = document.getElementById('fm-run-desc').value.trim();
+
     appData.runs.unshift({
         date:          finishRunData.date,
         duration:      finishRunData.elapsed,
         distance:      finishRunData.dist,
+        title:         runTitle || null,
+        description:   runDesc  || null,
         feeling:       selectedFeeling,
         feelingEmoji:  feelings[selectedFeeling],
         feelingName:   feelNames[selectedFeeling],
@@ -429,6 +470,161 @@ function drawRoute(positions) {
 }
 
 // ==================== EXPLORE MAP ====================
+let exploreMap     = null;
+let exploreTileLayer = null;
+let exploreRunLayers = [];
+let exploreUserMarker = null;
+
+const TILE_DARK  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const TILE_ATTR  = '© <a href="https://openstreetmap.org">OpenStreetMap</a> © <a href="https://carto.com">CARTO</a>';
+const LIGHT_THEMES = ['light', 'pastel'];
+
+function getTileUrl() {
+    return LIGHT_THEMES.includes(appData.theme || 'dark') ? TILE_LIGHT : TILE_DARK;
+}
+
+function initExploreMap() {
+    const mapEl = document.getElementById('explore-map');
+    if (!mapEl || typeof L === 'undefined') return;
+
+    if (exploreMap) {
+        // Déjà initialisée : on resize et on rafraîchit
+        setTimeout(() => exploreMap.invalidateSize(), 80);
+        refreshRunsOnMap();
+        return;
+    }
+
+    exploreMap = L.map('explore-map', {
+        zoomControl: true,
+        attributionControl: true,
+        tap: true
+    }).setView([46.6, 2.4], 5); // France
+
+    exploreTileLayer = L.tileLayer(getTileUrl(), {
+        attribution: TILE_ATTR,
+        subdomains: 'abcd',
+        maxZoom: 19
+    }).addTo(exploreMap);
+
+    setTimeout(() => exploreMap.invalidateSize(), 80);
+    refreshRunsOnMap();
+    locateUser(true); // localisation silencieuse au démarrage
+}
+
+function updateMapTiles() {
+    if (!exploreMap || !exploreTileLayer) return;
+    exploreTileLayer.setUrl(getTileUrl());
+    // Refresh des marqueurs (couleur accent peut changer)
+    refreshRunsOnMap();
+}
+
+function locateUser(silent = false) {
+    if (!exploreMap || !navigator.geolocation) return;
+    const btn = document.getElementById('btn-locate');
+    if (btn) btn.classList.add('locating');
+
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            if (btn) btn.classList.remove('locating');
+            const latlng = [pos.coords.latitude, pos.coords.longitude];
+
+            if (exploreUserMarker) exploreUserMarker.remove();
+
+            const accent = getComputedStyle(document.documentElement)
+                .getPropertyValue('--accent').trim() || '#c8ff2e';
+
+            // Cercle pulsant pour la position actuelle
+            exploreUserMarker = L.layerGroup([
+                L.circleMarker(latlng, {
+                    radius: 14, fillColor: accent, color: accent,
+                    weight: 1, opacity: 0.25, fillOpacity: 0.2
+                }),
+                L.circleMarker(latlng, {
+                    radius: 7, fillColor: accent, color: '#fff',
+                    weight: 2, opacity: 1, fillOpacity: 1
+                })
+            ]).addTo(exploreMap);
+
+            if (!silent) exploreMap.setView(latlng, 15);
+        },
+        err => {
+            if (btn) btn.classList.remove('locating');
+            if (!silent) console.warn('Localisation refusée:', err.message);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+    );
+}
+
+function refreshRunsOnMap() {
+    if (!exploreMap) return;
+
+    // Nettoyage des anciens tracés
+    exploreRunLayers.forEach(l => l.remove());
+    exploreRunLayers = [];
+
+    const accent = getComputedStyle(document.documentElement)
+        .getPropertyValue('--accent').trim() || '#c8ff2e';
+
+    const runsWithGPS = appData.runs.filter(r => r.positions && r.positions.length >= 2);
+    const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+    runsWithGPS.forEach(run => {
+        const latlngs = run.positions.map(p => [p.lat, p.lng]);
+
+        const poly = L.polyline(latlngs, {
+            color: accent, weight: 4, opacity: 0.85,
+            lineCap: 'round', lineJoin: 'round'
+        }).addTo(exploreMap);
+
+        const d    = new Date(run.date);
+        const dist = (run.distance || 0).toFixed(2);
+        const dur  = Math.floor((run.duration || 0) / 1000);
+        const m    = Math.floor(dur / 60), s = dur % 60;
+        const label = run.title || `Course du ${d.getDate()} ${months[d.getMonth()]}`;
+        const feel  = run.feelingEmoji ? `&nbsp;${run.feelingEmoji}` : '';
+
+        poly.bindPopup(
+            `<div style="font-weight:700;font-size:14px;margin-bottom:4px">${label}${feel}</div>` +
+            `<div style="opacity:.7">${dist} km &nbsp;·&nbsp; ${m}min ${s}s</div>`,
+            { maxWidth: 200 }
+        );
+
+        // Points départ / arrivée
+        const startDot = L.circleMarker(latlngs[0], {
+            radius: 5, fillColor: '#4cff72', color: '#fff', weight: 1.5, fillOpacity: 1
+        }).addTo(exploreMap);
+        const endDot = L.circleMarker(latlngs[latlngs.length - 1], {
+            radius: 5, fillColor: '#ff4757', color: '#fff', weight: 1.5, fillOpacity: 1
+        }).addTo(exploreMap);
+
+        exploreRunLayers.push(poly, startDot, endDot);
+    });
+
+    // Barre d'info en bas
+    const bar = document.getElementById('explore-runs-bar');
+    const lbl = document.getElementById('explore-runs-label');
+    if (bar && lbl) {
+        if (runsWithGPS.length > 0) {
+            bar.style.display = 'flex';
+            lbl.textContent = `${runsWithGPS.length} parcours affiché${runsWithGPS.length > 1 ? 's' : ''} · Appuie sur un tracé pour les détails`;
+        } else {
+            bar.style.display = 'none';
+        }
+    }
+
+    // Zoom sur les parcours si présents (première fois seulement)
+    if (runsWithGPS.length > 0 && exploreRunLayers.length > 0) {
+        const allPoly = exploreRunLayers.filter(l => l instanceof L.Polyline);
+        if (allPoly.length > 0) {
+            try {
+                const group = L.featureGroup(allPoly);
+                exploreMap.fitBounds(group.getBounds().pad(0.2), { maxZoom: 15 });
+            } catch(e) {}
+        }
+    }
+}
+
 
 // ==================== PROFILE ====================
 const DEFAULT_AVATAR = '/img/iconmaqprint.webp';
@@ -526,8 +722,9 @@ function switchPage(page) {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('page-' + page).classList.add('active');
     document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
-    if (page === 'run') renderHistory();
+    if (page === 'run')     renderHistory();
     if (page === 'profile') renderProfile();
+    if (page === 'explore') initExploreMap();
 }
 
 // ==================== INIT ====================
