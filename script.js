@@ -292,6 +292,9 @@ function renderHistory() {
           <div class="hi-info">${titleLine}<div class="hi-dist">${dist.toFixed(2)} km${feelingBadge}</div><div class="hi-meta">${m}min ${s}s</div>${descLine}</div>
           <div class="hi-pace">${pace}<br><span style="font-size:9px;color:var(--text3)">min/km</span></div>
           ${thumbHtml}
+          <button class="hi-delete-btn" onclick="event.stopPropagation(); askDeleteRun(${idx})" title="Supprimer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
         </div>`;
     }).join('');
     renderWeekChart();
@@ -985,6 +988,34 @@ function saveProfile() {
     saveData(appData);
     renderProfile();
     document.getElementById('profile-modal-overlay').classList.remove('show');
+}
+
+// ==================== SUPPRIMER COURSE ====================
+let pendingDeleteIndex = null;
+
+function askDeleteRun(idx) {
+    pendingDeleteIndex = idx;
+    document.getElementById('confirm-delete-overlay').classList.add('show');
+}
+function cancelDelete(event) {
+    if (event && event.target !== document.getElementById('confirm-delete-overlay')) return;
+    pendingDeleteIndex = null;
+    document.getElementById('confirm-delete-overlay').classList.remove('show');
+}
+function confirmDelete() {
+    if (pendingDeleteIndex === null) return;
+    // Libère l'objectUrl vidéo si présent
+    const run = appData.runs[pendingDeleteIndex];
+    if (run && run._videoObjectUrl) URL.revokeObjectURL(run._videoObjectUrl);
+    appData.runs.splice(pendingDeleteIndex, 1);
+    saveData(appData);
+    visitedHexCache = null;
+    pendingDeleteIndex = null;
+    document.getElementById('confirm-delete-overlay').classList.remove('show');
+    renderHistory();
+    renderProfile();
+    if (exploreMap)   refreshRunsOnMap();
+    if (explorerMap)  renderHexGrid();
 }
 
 // ==================== RECORDS ====================

@@ -362,6 +362,19 @@
     </div>
   </div>
 
+  <!-- ===== CONFIRM DELETE ===== -->
+  <div class="modal-overlay" id="confirm-delete-overlay" onclick="cancelDelete(event)">
+    <div class="modal-box" style="max-width:300px;text-align:center">
+      <div style="font-size:32px;margin-bottom:4px">🗑</div>
+      <h3 class="modal-title">Supprimer ?</h3>
+      <p style="font-size:13px;color:var(--text2);margin-top:6px">Après c'est fichu</p>
+      <div class="modal-actions" style="margin-top:20px">
+        <button class="modal-btn cancel" onclick="cancelDelete()">Missclick mb</button>
+        <button class="modal-btn save" style="background:var(--red)" onclick="confirmDelete()">Ciao bella</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== MEDIA VIEWER ===== -->
   <div class="media-viewer" id="media-viewer" onclick="closeMediaViewer()">
     <button class="media-viewer-close" onclick="closeMediaViewer()">
