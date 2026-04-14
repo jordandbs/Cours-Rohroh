@@ -181,7 +181,7 @@ const programs = {
 // ==================== STORAGE ====================
 const STORAGE_KEY = "coursrohroh_data";
 const SESSION_KEY = "rohroh_session";
-const DEFAULT_AVATAR = "/img/ROHROH.PNG";
+const DEFAULT_AVATAR = "/img/rohroh.png";
 
 let db = null;
 let currentUser = null; // { username, displayName }
