@@ -264,7 +264,7 @@ function haversine(lat1, lon1, lat2, lon2) {
 function renderHistory() {
     const el = document.getElementById('history-list');
     if (appData.runs.length === 0) {
-        el.innerHTML = '<div class="empty-state"><div class="emoji">👟</div><p>Aucune course enregistrée.<br>Lance ta première course !</p></div>';
+        el.innerHTML = '<div class="empty-state"><div class="emoji">👟</div><p>Aucune course enregistrée.<br>Va courir le mimicul</p></div>';
         renderWeekChart(); return;
     }
     const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
@@ -333,13 +333,14 @@ function openFinishModal() {
     document.querySelectorAll('.feeling-btn').forEach(b => b.classList.remove('selected'));
     document.getElementById('btn-save-run').disabled = true;
 
-    // Dessine le tracé (avec délai pour que le DOM soit visible)
+    // Affiche le modal puis initialise la carte Leaflet
     document.getElementById('finish-overlay').classList.add('show');
-    setTimeout(() => drawRoute(runPositions), 50);
+    setTimeout(() => initFinishMap(runPositions), 100);
 }
 
 function closeFinishModal() {
     document.getElementById('finish-overlay').classList.remove('show');
+    if (finishRouteMap) { finishRouteMap.remove(); finishRouteMap = null; }
 }
 
 function selectFeeling(idx) {
@@ -387,87 +388,52 @@ function saveFinishedRun() {
     document.getElementById('run-cal').textContent = '0';
     updateRunUI();
     renderHistory();
+    // Refresh carte explore si déjà ouverte
+    if (exploreMap) refreshRunsOnMap();
+    if (explorerMap) { visitedHexCache = null; renderHexGrid(); }
 }
 
-function drawRoute(positions) {
-    const canvas  = document.getElementById('finish-route-canvas');
+let finishRouteMap = null;
+
+function initFinishMap(positions) {
+    if (finishRouteMap) { finishRouteMap.remove(); finishRouteMap = null; }
+
+    const mapEl  = document.getElementById('finish-route-map');
     const emptyEl = document.getElementById('finish-map-empty');
+    if (!mapEl || typeof L === 'undefined') return;
 
-    if (!positions || positions.length < 2) {
-        canvas.style.display = 'none';
-        emptyEl.style.display = 'flex';
-        return;
+    const hasGPS = positions && positions.length >= 2;
+    emptyEl.style.display = hasGPS ? 'none' : 'flex';
+
+    finishRouteMap = L.map('finish-route-map', {
+        zoomControl:       false,
+        attributionControl: false,
+        dragging:          hasGPS,
+        scrollWheelZoom:   false,
+        tap:               hasGPS
+    }).setView([46.6, 2.4], 13);
+
+    L.tileLayer(getTileUrl(), { subdomains: 'abcd', maxZoom: 19 }).addTo(finishRouteMap);
+
+    if (hasGPS) {
+        const latlngs = positions.map(p => [p.lat, p.lng]);
+        const accent  = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#c8ff2e';
+
+        const poly = L.polyline(latlngs, {
+            color: accent, weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round'
+        }).addTo(finishRouteMap);
+
+        L.circleMarker(latlngs[0], {
+            radius: 7, fillColor: '#4cff72', color: '#fff', weight: 2, fillOpacity: 1, opacity: 1
+        }).addTo(finishRouteMap);
+        L.circleMarker(latlngs[latlngs.length - 1], {
+            radius: 7, fillColor: '#ff4757', color: '#fff', weight: 2, fillOpacity: 1, opacity: 1
+        }).addTo(finishRouteMap);
+
+        finishRouteMap.fitBounds(poly.getBounds().pad(0.3));
     }
-    canvas.style.display = 'block';
-    emptyEl.style.display = 'none';
 
-    // Dimensions réelles du conteneur
-    const wrap = canvas.parentElement;
-    const W = wrap.offsetWidth  || 300;
-    const H = wrap.offsetHeight || 210;
-    canvas.width  = W;
-    canvas.height = H;
-
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, W, H);
-
-    // Couleur accent depuis les variables CSS
-    const accentColor = getComputedStyle(document.documentElement)
-        .getPropertyValue('--accent').trim() || '#c8ff2e';
-    const bgColor = getComputedStyle(document.documentElement)
-        .getPropertyValue('--surface').trim() || '#13131a';
-
-    // Fond
-    ctx.fillStyle = bgColor;
-    ctx.fillRect(0, 0, W, H);
-
-    const lats = positions.map(p => p.lat);
-    const lngs = positions.map(p => p.lng);
-    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-    const latRange = maxLat - minLat || 0.0001;
-    const lngRange = maxLng - minLng || 0.0001;
-
-    const pad = 32;
-    const w = W - pad * 2;
-    const h = H - pad * 2;
-
-    const project = p => ({
-        x: (p.lng - minLng) / lngRange * w + pad,
-        y: (1 - (p.lat - minLat) / latRange) * h + pad
-    });
-
-    // Tracé avec dégradé
-    const grad = ctx.createLinearGradient(pad, pad, pad + w, pad + h);
-    grad.addColorStop(0, accentColor + '88');
-    grad.addColorStop(1, accentColor);
-
-    ctx.beginPath();
-    const p0 = project(positions[0]);
-    ctx.moveTo(p0.x, p0.y);
-    for (let i = 1; i < positions.length; i++) {
-        const pt = project(positions[i]);
-        ctx.lineTo(pt.x, pt.y);
-    }
-    ctx.strokeStyle = grad;
-    ctx.lineWidth   = 3.5;
-    ctx.lineCap     = 'round';
-    ctx.lineJoin    = 'round';
-    ctx.stroke();
-
-    // Point départ (vert)
-    const sp = project(positions[0]);
-    ctx.beginPath();
-    ctx.arc(sp.x, sp.y, 6, 0, Math.PI * 2);
-    ctx.fillStyle = '#4cff72';
-    ctx.fill();
-
-    // Point arrivée (rouge)
-    const ep = project(positions[positions.length - 1]);
-    ctx.beginPath();
-    ctx.arc(ep.x, ep.y, 6, 0, Math.PI * 2);
-    ctx.fillStyle = '#ff4757';
-    ctx.fill();
+    setTimeout(() => finishRouteMap && finishRouteMap.invalidateSize(), 150);
 }
 
 // ==================== EXPLORE MAP ====================
@@ -845,6 +811,124 @@ function saveProfile() {
     document.getElementById('profile-modal-overlay').classList.remove('show');
 }
 
+// ==================== RECORDS ====================
+const STANDARD_DISTANCES = [
+    { label: '100 m',         sub: null,         dist: 0.1     },
+    { label: '200 m',         sub: null,         dist: 0.2     },
+    { label: '400 m',         sub: null,         dist: 0.4     },
+    { label: '1 km',          sub: null,         dist: 1       },
+    { label: '5 km',          sub: null,         dist: 5       },
+    { label: '10 km',         sub: null,         dist: 10      },
+    { label: '15 km',         sub: null,         dist: 15      },
+    { label: '20 km',         sub: null,         dist: 20      },
+    { label: 'Semi-Marathon', sub: '21,1 km',    dist: 21.0975 },
+    { label: '25 km',         sub: null,         dist: 25      },
+    { label: '30 km',         sub: null,         dist: 30      },
+    { label: '40 km',         sub: null,         dist: 40      },
+    { label: 'Marathon',      sub: '42,195 km',  dist: 42.195  },
+    { label: '50 km',         sub: null,         dist: 50      },
+    { label: '100 km',        sub: null,         dist: 100     },
+];
+
+function fmtTime(ms) {
+    if (ms === null) return null;
+    const s  = Math.floor(ms / 1000);
+    const h  = Math.floor(s / 3600);
+    const m  = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+    if (h > 0) return `${h}h ${String(m).padStart(2,'0')}'${String(ss).padStart(2,'0')}"`;
+    if (m > 0) return `${m}'${String(ss).padStart(2,'0')}"`;
+    return `${ss}s`;
+}
+
+function getBestForDist(targetDist) {
+    let best = null, bestRun = null;
+    appData.runs.forEach(run => {
+        if (!run.distance || run.distance < targetDist || !run.duration) return;
+        const pace = run.duration / run.distance;
+        const est  = pace * targetDist;
+        if (best === null || est < best) { best = est; bestRun = run; }
+    });
+    return { ms: best, run: bestRun };
+}
+
+function renderRecords() {
+    const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+    // ---- Section 1 : distances standards ----
+    const stdEl = document.getElementById('standard-records-list');
+    if (!stdEl) return;
+    let unlockedCount = 0;
+
+    stdEl.innerHTML = STANDARD_DISTANCES.map(({ label, sub, dist }) => {
+        const { ms, run } = getBestForDist(dist);
+        const time  = ms !== null ? fmtTime(ms) : null;
+        const dateStr = run ? (() => { const d = new Date(run.date); return `${d.getDate()} ${months[d.getMonth()]}`; })() : '';
+        if (ms !== null) unlockedCount++;
+        return `
+        <div class="record-row">
+          <div class="record-dist-label">${label}${sub ? `<small>${sub}</small>` : ''}</div>
+          ${time
+            ? `<div class="record-time-val">${time}</div><div class="record-date-lbl">${dateStr}</div>`
+            : `<div class="record-time-val locked">🔒</div><div class="record-date-lbl"></div>`
+          }
+        </div>`;
+    }).join('');
+
+    // Petit résumé
+    const summary = document.createElement('div');
+    summary.style.cssText = 'font-size:11px;color:var(--text3);text-align:center;padding:8px 0 4px;font-weight:600;';
+    summary.textContent = unlockedCount > 0
+        ? `${unlockedCount} / ${STANDARD_DISTANCES.length} distances débloquées`
+        : 'Faut courir pour en avoir grognasse';
+    stdEl.appendChild(summary);
+
+    // ---- Section 2 : meilleurs runs par allure ----
+    const bestEl = document.getElementById('best-runs-list');
+    if (!bestEl) return;
+
+    const validRuns = appData.runs
+        .filter(r => r.distance > 0.5 && r.duration > 0)
+        .map(r => ({
+            ...r,
+            paceMs: r.duration / r.distance,
+            paceStr: (() => {
+                const ps = (r.duration / 1000) / r.distance;
+                return `${Math.floor(ps / 60)}:${String(Math.floor(ps % 60)).padStart(2,'0')}`;
+            })()
+        }))
+        .sort((a, b) => a.paceMs - b.paceMs)
+        .slice(0, 8);
+
+    if (validRuns.length === 0) {
+        bestEl.innerHTML = '<div class="empty-state"><div class="emoji">🏃</div><p>VA COURIIIIIIIR</p></div>';
+        return;
+    }
+
+    const rankLabels = ['🥇','🥈','🥉'];
+    const rankClasses = ['gold','silver','bronze'];
+
+    bestEl.innerHTML = validRuns.map((r, i) => {
+        const d    = new Date(r.date);
+        const dist = r.distance.toFixed(2);
+        const dur  = Math.floor(r.duration / 1000);
+        const m    = Math.floor(dur / 60), s = dur % 60;
+        const title = r.title || `${d.getDate()} ${months[d.getMonth()]}`;
+        const feel  = r.feelingEmoji || '';
+        const rankLabel = rankLabels[i] || `${i+1}`;
+        const rankCls   = rankClasses[i] || '';
+        return `
+        <div class="best-run-card">
+          <div class="best-run-rank ${rankCls}">${rankLabel}</div>
+          <div class="best-run-info">
+            <div class="best-run-pace">${r.paceStr} <span style="font-size:12px;color:var(--text2);font-family:Outfit">min/km</span></div>
+            <div class="best-run-meta">${title} · ${dist} km · ${m}min ${s}s</div>
+          </div>
+          <div class="best-run-feeling">${feel}</div>
+        </div>`;
+    }).join('');
+}
+
 // ==================== NAV ====================
 function switchPage(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -854,6 +938,7 @@ function switchPage(page) {
     if (page === 'run')     renderHistory();
     if (page === 'profile') renderProfile();
     if (page === 'explore') initExploreMap();
+    if (page === 'record')  renderRecords();
 }
 
 // ==================== INIT ====================

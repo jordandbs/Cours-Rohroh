@@ -208,9 +208,7 @@ body {
   border-top: 1px solid var(--nav-border);
   display: flex;
   z-index: 100;
-  transition:
-    background 0.4s,
-    border-color 0.4s;
+  transition: background 0.4s, border-color 0.4s;
 }
 .nav-item {
   flex: 1;
@@ -218,38 +216,37 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   color: var(--text3);
   transition: color 0.2s;
   cursor: pointer;
   position: relative;
+  padding: 0 2px;
 }
-.nav-item.active {
-  color: var(--accent);
-}
+.nav-item.active { color: var(--accent); }
 .nav-item.active::before {
   content: "";
   position: absolute;
   top: -1px;
   left: 50%;
   transform: translateX(-50%);
-  width: 32px;
+  width: 24px;
   height: 2px;
   background: var(--accent);
   border-radius: 2px;
 }
 .nav-item svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   transition: transform 0.2s;
+  flex-shrink: 0;
 }
-.nav-item.active svg {
-  transform: scale(1.1);
-}
+.nav-item.active svg { transform: scale(1.1); }
 .nav-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 /* ===== PAGE HEADER ===== */
@@ -972,6 +969,87 @@ body {
   text-align: center;
 }
 
+/* ===== RECORDS PAGE ===== */
+.record-row {
+  display: flex;
+  align-items: center;
+  padding: 13px 16px;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  border: 1px solid var(--card-border);
+  transition: background 0.4s, border-color 0.4s;
+  gap: 12px;
+}
+.record-dist-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 100px;
+}
+.record-dist-label small {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text3);
+  margin-top: 1px;
+}
+.record-time-val {
+  flex: 1;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: right;
+}
+.record-time-val.locked {
+  color: var(--text3);
+  font-size: 18px;
+  font-family: inherit;
+}
+.record-date-lbl {
+  font-size: 10px;
+  color: var(--text3);
+  min-width: 40px;
+  text-align: right;
+}
+
+.best-run-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 10px;
+  border: 1px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: background 0.4s, border-color 0.4s;
+}
+.best-run-rank {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text3);
+  min-width: 32px;
+  text-align: center;
+}
+.best-run-rank.gold   { color: #ffd700; }
+.best-run-rank.silver { color: #c0c0c0; }
+.best-run-rank.bronze { color: #cd7f32; }
+.best-run-info { flex: 1; }
+.best-run-pace {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.best-run-meta {
+  font-size: 11px;
+  color: var(--text2);
+  margin-top: 3px;
+}
+.best-run-feeling { font-size: 20px; }
+
 /* ===== FINISH OVERLAY ===== */
 .finish-overlay {
   position: fixed;
@@ -1109,30 +1187,35 @@ body {
   background: var(--line);
 }
 .finish-map-wrap {
-  background: var(--surface);
   border-radius: var(--radius);
-  border: 1px solid var(--card-border);
   overflow: hidden;
-  height: 210px;
+  height: 220px;
   margin-bottom: 20px;
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--card-border);
   transition: background 0.4s, border-color 0.4s;
 }
-#finish-route-canvas {
+#finish-route-map {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  display: block;
+  z-index: 0;
 }
 .finish-map-empty {
   position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   color: var(--text3);
   font-size: 13px;
   text-align: center;
   font-weight: 500;
-  display: none;
+  z-index: 1;
+  pointer-events: none;
 }
 
 /* Ressenti */

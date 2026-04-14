@@ -143,6 +143,18 @@
       </div>
     </div>
 
+    <!-- RECORD -->
+    <div class="page" id="page-record">
+      <div class="page-header">
+        <div class="page-title">Records<span class="accent-dot">.</span></div>
+        <div class="page-subtitle">Tes meilleures perfs mimi</div>
+      </div>
+      <div class="section-label">Distances standards</div>
+      <div id="standard-records-list"></div>
+      <div class="section-label" style="margin-top:28px">Meilleurs runs</div>
+      <div id="best-runs-list"></div>
+    </div>
+
     <!-- PROFIL -->
     <div class="page" id="page-profile">
       <div class="page-header">
@@ -271,7 +283,7 @@
     <!-- Tracé du parcours -->
     <div class="finish-map-label">Tracé du parcours</div>
     <div class="finish-map-wrap">
-      <canvas id="finish-route-canvas"></canvas>
+      <div id="finish-route-map"></div>
       <div class="finish-map-empty" id="finish-map-empty">
         <div style="font-size:32px;margin-bottom:8px">📍</div>
         <div>Pas de données GPS</div>
@@ -343,7 +355,7 @@
   <nav class="navbar">
     <div class="nav-item active" data-page="warmup" onclick="switchPage('warmup')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
-      <span class="nav-label">Échauffe.</span>
+      <span class="nav-label">Ca chauffe</span>
     </div>
     <div class="nav-item" data-page="run" onclick="switchPage('run')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -351,11 +363,15 @@
     </div>
     <div class="nav-item" data-page="explore" onclick="switchPage('explore')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s8-4.5 8-10a8 8 0 0 0-16 0c0 5.5 8 10 8 10z"/><circle cx="12" cy="11" r="3"/></svg>
-      <span class="nav-label">Explore</span>
+      <span class="nav-label">Carte</span>
+    </div>
+    <div class="nav-item" data-page="record" onclick="switchPage('record')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+      <span class="nav-label">Records</span>
     </div>
     <div class="nav-item" data-page="stretch" onclick="switchPage('stretch')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-      <span class="nav-label">Étirement</span>
+      <span class="nav-label">Ca tire</span>
     </div>
     <div class="nav-item" data-page="profile" onclick="switchPage('profile')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
