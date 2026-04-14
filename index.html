@@ -114,17 +114,32 @@
     <!-- EXPLORE -->
     <div class="page" id="page-explore">
       <div class="explore-topbar">
-        <div>
-          <div class="page-title">Explore<span class="accent-dot">.</span></div>
-          <div class="page-subtitle">Tes parcours sur la carte</div>
-        </div>
-        <button class="explore-locate-btn" id="btn-locate" onclick="locateUser()" title="Me localiser">
+        <div class="page-title">Explore<span class="accent-dot">.</span></div>
+        <button class="explore-locate-btn" id="btn-locate" onclick="locateActiveMap()" title="Me localiser">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" stroke-dasharray="2 3"/></svg>
         </button>
       </div>
-      <div id="explore-map"></div>
-      <div class="explore-runs-bar" id="explore-runs-bar" style="display:none">
-        <span class="explore-runs-label" id="explore-runs-label"></span>
+
+      <!-- Onglets -->
+      <div class="explore-tabs">
+        <button class="explore-tab active" data-tab="trace" onclick="switchExploreTab('trace')">🗺 Tracé</button>
+        <button class="explore-tab" data-tab="explorer" onclick="switchExploreTab('explorer')">🔷 Explorer</button>
+      </div>
+
+      <!-- Onglet Tracé -->
+      <div class="explore-tab-content active" id="tab-content-trace">
+        <div id="explore-map"></div>
+        <div class="explore-runs-bar" id="explore-runs-bar" style="display:none">
+          <span class="explore-runs-label" id="explore-runs-label"></span>
+        </div>
+      </div>
+
+      <!-- Onglet Explorer (hexagones) -->
+      <div class="explore-tab-content" id="tab-content-explorer">
+        <div id="explorer-map"></div>
+        <div class="explore-runs-bar">
+          <span class="explore-runs-label" id="explorer-stats-label">Zoom pour voir les hexagones</span>
+        </div>
       </div>
     </div>
 

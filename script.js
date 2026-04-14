@@ -373,6 +373,7 @@ function saveFinishedRun() {
         positions:     savedPositions
     });
     saveData(appData);
+    visitedHexCache = null; // force recalcul des hexagones visités
 
     // Reset complet
     closeFinishModal();
@@ -470,11 +471,6 @@ function drawRoute(positions) {
 }
 
 // ==================== EXPLORE MAP ====================
-let exploreMap     = null;
-let exploreTileLayer = null;
-let exploreRunLayers = [];
-let exploreUserMarker = null;
-
 const TILE_DARK  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 const TILE_LIGHT = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 const TILE_ATTR  = '© <a href="https://openstreetmap.org">OpenStreetMap</a> © <a href="https://carto.com">CARTO</a>';
@@ -484,144 +480,277 @@ function getTileUrl() {
     return LIGHT_THEMES.includes(appData.theme || 'dark') ? TILE_LIGHT : TILE_DARK;
 }
 
+// --- Onglets ---
+let currentExploreTab = 'trace';
+
+function switchExploreTab(tab) {
+    currentExploreTab = tab;
+    document.querySelectorAll('.explore-tab').forEach(t =>
+        t.classList.toggle('active', t.dataset.tab === tab));
+    document.querySelectorAll('.explore-tab-content').forEach(c =>
+        c.classList.toggle('active', c.id === `tab-content-${tab}`));
+    if (tab === 'trace'    && exploreMap)   setTimeout(() => exploreMap.invalidateSize(), 80);
+    if (tab === 'explorer') initExplorerMap();
+}
+
+function locateActiveMap() {
+    if (currentExploreTab === 'trace') locateUser(false);
+    else locateExplorer(false);
+}
+
+// -------- ONGLET TRACÉ --------
+let exploreMap       = null;
+let exploreTileLayer = null;
+let exploreRunLayers = [];
+let exploreUserMarker = null;
+
 function initExploreMap() {
     const mapEl = document.getElementById('explore-map');
     if (!mapEl || typeof L === 'undefined') return;
-
     if (exploreMap) {
-        // Déjà initialisée : on resize et on rafraîchit
         setTimeout(() => exploreMap.invalidateSize(), 80);
         refreshRunsOnMap();
         return;
     }
-
-    exploreMap = L.map('explore-map', {
-        zoomControl: true,
-        attributionControl: true,
-        tap: true
-    }).setView([46.6, 2.4], 5); // France
-
-    exploreTileLayer = L.tileLayer(getTileUrl(), {
-        attribution: TILE_ATTR,
-        subdomains: 'abcd',
-        maxZoom: 19
-    }).addTo(exploreMap);
-
+    exploreMap = L.map('explore-map', { zoomControl: true, attributionControl: true, tap: true })
+        .setView([46.6, 2.4], 5);
+    exploreTileLayer = L.tileLayer(getTileUrl(), { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19 })
+        .addTo(exploreMap);
     setTimeout(() => exploreMap.invalidateSize(), 80);
     refreshRunsOnMap();
-    locateUser(true); // localisation silencieuse au démarrage
-}
-
-function updateMapTiles() {
-    if (!exploreMap || !exploreTileLayer) return;
-    exploreTileLayer.setUrl(getTileUrl());
-    // Refresh des marqueurs (couleur accent peut changer)
-    refreshRunsOnMap();
+    locateUser(true);
 }
 
 function locateUser(silent = false) {
     if (!exploreMap || !navigator.geolocation) return;
     const btn = document.getElementById('btn-locate');
     if (btn) btn.classList.add('locating');
-
-    navigator.geolocation.getCurrentPosition(
-        pos => {
-            if (btn) btn.classList.remove('locating');
-            const latlng = [pos.coords.latitude, pos.coords.longitude];
-
-            if (exploreUserMarker) exploreUserMarker.remove();
-
-            const accent = getComputedStyle(document.documentElement)
-                .getPropertyValue('--accent').trim() || '#c8ff2e';
-
-            // Cercle pulsant pour la position actuelle
-            exploreUserMarker = L.layerGroup([
-                L.circleMarker(latlng, {
-                    radius: 14, fillColor: accent, color: accent,
-                    weight: 1, opacity: 0.25, fillOpacity: 0.2
-                }),
-                L.circleMarker(latlng, {
-                    radius: 7, fillColor: accent, color: '#fff',
-                    weight: 2, opacity: 1, fillOpacity: 1
-                })
-            ]).addTo(exploreMap);
-
-            if (!silent) exploreMap.setView(latlng, 15);
-        },
-        err => {
-            if (btn) btn.classList.remove('locating');
-            if (!silent) console.warn('Localisation refusée:', err.message);
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-    );
+    navigator.geolocation.getCurrentPosition(pos => {
+        if (btn) btn.classList.remove('locating');
+        const ll = [pos.coords.latitude, pos.coords.longitude];
+        if (exploreUserMarker) exploreUserMarker.remove();
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#c8ff2e';
+        exploreUserMarker = L.layerGroup([
+            L.circleMarker(ll, { radius: 14, fillColor: accent, color: accent, weight: 1, opacity: 0.22, fillOpacity: 0.18 }),
+            L.circleMarker(ll, { radius: 7,  fillColor: accent, color: '#fff',   weight: 2, opacity: 1,    fillOpacity: 1    })
+        ]).addTo(exploreMap);
+        if (!silent) exploreMap.setView(ll, 15);
+    }, err => {
+        if (btn) btn.classList.remove('locating');
+    }, { enableHighAccuracy: true, timeout: 10000 });
 }
 
 function refreshRunsOnMap() {
     if (!exploreMap) return;
-
-    // Nettoyage des anciens tracés
     exploreRunLayers.forEach(l => l.remove());
     exploreRunLayers = [];
-
-    const accent = getComputedStyle(document.documentElement)
-        .getPropertyValue('--accent').trim() || '#c8ff2e';
-
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#c8ff2e';
     const runsWithGPS = appData.runs.filter(r => r.positions && r.positions.length >= 2);
     const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-
     runsWithGPS.forEach(run => {
         const latlngs = run.positions.map(p => [p.lat, p.lng]);
-
-        const poly = L.polyline(latlngs, {
-            color: accent, weight: 4, opacity: 0.85,
-            lineCap: 'round', lineJoin: 'round'
-        }).addTo(exploreMap);
-
-        const d    = new Date(run.date);
+        const poly = L.polyline(latlngs, { color: accent, weight: 4, opacity: 0.85, lineCap: 'round', lineJoin: 'round' }).addTo(exploreMap);
+        const d = new Date(run.date);
         const dist = (run.distance || 0).toFixed(2);
-        const dur  = Math.floor((run.duration || 0) / 1000);
-        const m    = Math.floor(dur / 60), s = dur % 60;
+        const dur = Math.floor((run.duration || 0) / 1000);
         const label = run.title || `Course du ${d.getDate()} ${months[d.getMonth()]}`;
         const feel  = run.feelingEmoji ? `&nbsp;${run.feelingEmoji}` : '';
-
         poly.bindPopup(
             `<div style="font-weight:700;font-size:14px;margin-bottom:4px">${label}${feel}</div>` +
-            `<div style="opacity:.7">${dist} km &nbsp;·&nbsp; ${m}min ${s}s</div>`,
+            `<div style="opacity:.7">${dist} km · ${Math.floor(dur/60)}min ${dur%60}s</div>`,
             { maxWidth: 200 }
         );
-
-        // Points départ / arrivée
-        const startDot = L.circleMarker(latlngs[0], {
-            radius: 5, fillColor: '#4cff72', color: '#fff', weight: 1.5, fillOpacity: 1
-        }).addTo(exploreMap);
-        const endDot = L.circleMarker(latlngs[latlngs.length - 1], {
-            radius: 5, fillColor: '#ff4757', color: '#fff', weight: 1.5, fillOpacity: 1
-        }).addTo(exploreMap);
-
-        exploreRunLayers.push(poly, startDot, endDot);
+        const s = L.circleMarker(latlngs[0],                   { radius:5, fillColor:'#4cff72', color:'#fff', weight:1.5, fillOpacity:1 }).addTo(exploreMap);
+        const e = L.circleMarker(latlngs[latlngs.length - 1],  { radius:5, fillColor:'#ff4757', color:'#fff', weight:1.5, fillOpacity:1 }).addTo(exploreMap);
+        exploreRunLayers.push(poly, s, e);
     });
-
-    // Barre d'info en bas
     const bar = document.getElementById('explore-runs-bar');
     const lbl = document.getElementById('explore-runs-label');
     if (bar && lbl) {
-        if (runsWithGPS.length > 0) {
-            bar.style.display = 'flex';
-            lbl.textContent = `${runsWithGPS.length} parcours affiché${runsWithGPS.length > 1 ? 's' : ''} · Appuie sur un tracé pour les détails`;
-        } else {
-            bar.style.display = 'none';
+        bar.style.display = runsWithGPS.length > 0 ? 'flex' : 'none';
+        if (runsWithGPS.length > 0)
+            lbl.textContent = `${runsWithGPS.length} parcours · Appuie sur un tracé pour les détails`;
+    }
+    if (runsWithGPS.length > 0) {
+        try {
+            const g = L.featureGroup(exploreRunLayers.filter(l => l instanceof L.Polyline));
+            exploreMap.fitBounds(g.getBounds().pad(0.2), { maxZoom: 15 });
+        } catch(e) {}
+    }
+}
+
+function updateMapTiles() {
+    if (exploreTileLayer)  exploreTileLayer.setUrl(getTileUrl());
+    if (explorerTileLayer) explorerTileLayer.setUrl(getTileUrl());
+    refreshRunsOnMap();
+    renderHexGrid();
+}
+
+// -------- ONGLET EXPLORER (HEXAGONES) --------
+let explorerMap       = null;
+let explorerTileLayer = null;
+let hexLayerGroup     = null;
+let explorerUserMarker = null;
+let hexRefLat = null, hexRefLng = null;
+let visitedHexCache = null; // Set de "q,r"
+
+// Rayon du circumcercle → flat-to-flat ≈ 500m (289 * sqrt(3) ≈ 500m)
+const HEX_R_M = 289;
+
+function initExplorerMap() {
+    const mapEl = document.getElementById('explorer-map');
+    if (!mapEl || typeof L === 'undefined') return;
+    if (explorerMap) {
+        setTimeout(() => explorerMap.invalidateSize(), 80);
+        if (hexRefLat !== null) renderHexGrid();
+        return;
+    }
+    explorerMap = L.map('explorer-map', { zoomControl: true, attributionControl: true, tap: true })
+        .setView([46.6, 2.4], 13);
+    explorerTileLayer = L.tileLayer(getTileUrl(), { attribution: TILE_ATTR, subdomains: 'abcd', maxZoom: 19, opacity: 0.65 })
+        .addTo(explorerMap);
+    hexLayerGroup = L.layerGroup().addTo(explorerMap);
+    explorerMap.on('moveend zoomend', renderHexGrid);
+    setTimeout(() => explorerMap.invalidateSize(), 80);
+    locateExplorer(false);
+}
+
+function locateExplorer(centerMap = true) {
+    if (!explorerMap || !navigator.geolocation) return;
+    const btn = document.getElementById('btn-locate');
+    if (btn) btn.classList.add('locating');
+    navigator.geolocation.getCurrentPosition(pos => {
+        if (btn) btn.classList.remove('locating');
+        const lat = pos.coords.latitude, lng = pos.coords.longitude;
+        // On fixe le point de référence une seule fois
+        if (hexRefLat === null) { hexRefLat = lat; hexRefLng = lng; visitedHexCache = null; }
+        if (explorerUserMarker) explorerUserMarker.remove();
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#c8ff2e';
+        explorerUserMarker = L.layerGroup([
+            L.circleMarker([lat, lng], { radius:14, fillColor:accent, color:accent, weight:1, opacity:0.2, fillOpacity:0.15 }),
+            L.circleMarker([lat, lng], { radius:7,  fillColor:accent, color:'#fff',  weight:2, opacity:1,  fillOpacity:1   })
+        ]).addTo(explorerMap);
+        explorerMap.setView([lat, lng], centerMap ? 15 : Math.max(explorerMap.getZoom(), 13));
+        renderHexGrid();
+    }, err => {
+        if (btn) btn.classList.remove('locating');
+        if (hexRefLat === null) { hexRefLat = 46.6; hexRefLng = 2.4; }
+        renderHexGrid();
+    }, { enableHighAccuracy: true, timeout: 10000 });
+}
+
+// ---- Maths hexagonales (pointy-top, coordonnées axiales) ----
+function llToM(lat, lng) {
+    const R = 6371000;
+    return {
+        mx: (lng - hexRefLng) * Math.PI / 180 * R * Math.cos(hexRefLat * Math.PI / 180),
+        my: (lat - hexRefLat) * Math.PI / 180 * R
+    };
+}
+function mToLL(mx, my) {
+    const R = 6371000;
+    return [
+        hexRefLat + (my / R) * (180 / Math.PI),
+        hexRefLng + (mx / (R * Math.cos(hexRefLat * Math.PI / 180))) * (180 / Math.PI)
+    ];
+}
+function mToHex(mx, my) {
+    const q = (mx * Math.sqrt(3) / 3 - my / 3) / HEX_R_M;
+    const r = (my * 2 / 3) / HEX_R_M;
+    return roundHex(q, r);
+}
+function hexToM(q, r) {
+    return { mx: HEX_R_M * Math.sqrt(3) * (q + r / 2), my: HEX_R_M * 1.5 * r };
+}
+function roundHex(q, r) {
+    const s = -q - r;
+    let rq = Math.round(q), rr = Math.round(r), rs = Math.round(s);
+    const dq = Math.abs(rq-q), dr = Math.abs(rr-r), ds = Math.abs(rs-s);
+    if (dq > dr && dq > ds) rq = -rr - rs;
+    else if (dr > ds) rr = -rq - rs;
+    return { q: rq, r: rr };
+}
+function hexCornerLatLngs(q, r) {
+    const { mx, my } = hexToM(q, r);
+    return Array.from({ length: 6 }, (_, i) => {
+        const a = Math.PI / 180 * (60 * i - 30); // pointy-top
+        return mToLL(mx + HEX_R_M * Math.cos(a), my + HEX_R_M * Math.sin(a));
+    });
+}
+
+// Calcule les hexagones visités à partir des tracés GPS
+function getVisitedHexes() {
+    if (visitedHexCache) return visitedHexCache;
+    visitedHexCache = new Set();
+    appData.runs.forEach(run => {
+        if (!run.positions) return;
+        run.positions.forEach(p => {
+            const { mx, my } = llToM(p.lat, p.lng);
+            const { q, r } = mToHex(mx, my);
+            visitedHexCache.add(`${q},${r}`);
+        });
+    });
+    return visitedHexCache;
+}
+
+function renderHexGrid() {
+    if (!explorerMap || hexRefLat === null) return;
+    hexLayerGroup.clearLayers();
+
+    const zoom = explorerMap.getZoom();
+    const statsEl = document.getElementById('explorer-stats-label');
+    if (zoom < 11) {
+        if (statsEl) statsEl.textContent = '🔍 Zoome pour voir les hexagones';
+        return;
+    }
+
+    const bounds = explorerMap.getBounds();
+    const sw = llToM(bounds.getSouth(), bounds.getWest());
+    const ne = llToM(bounds.getNorth(), bounds.getEast());
+
+    const HEX_H = HEX_R_M * 1.5;
+    const HEX_W = HEX_R_M * Math.sqrt(3);
+
+    const minR = Math.floor(sw.my / HEX_H) - 2;
+    const maxR = Math.ceil (ne.my / HEX_H) + 2;
+
+    const visited = getVisitedHexes();
+    const accent  = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#c8ff2e';
+
+    let total = 0, visitedCount = 0;
+
+    for (let r = minR; r <= maxR; r++) {
+        const qOff = r / 2;
+        const minQ = Math.floor(sw.mx / HEX_W - qOff) - 2;
+        const maxQ = Math.ceil (ne.mx / HEX_W - qOff) + 2;
+
+        for (let q = minQ; q <= maxQ; q++) {
+            const { mx, my } = hexToM(q, r);
+            // Filtre spatial rapide
+            if (mx < sw.mx - HEX_R_M || mx > ne.mx + HEX_R_M) continue;
+            if (my < sw.my - HEX_R_M || my > ne.my + HEX_R_M) continue;
+            if (total >= 900) continue; // sécurité perf
+
+            const isVisited = visited.has(`${q},${r}`);
+            if (isVisited) visitedCount++;
+            total++;
+
+            L.polygon(hexCornerLatLngs(q, r), {
+                fillColor:    isVisited ? accent    : '#777777',
+                fillOpacity:  isVisited ? 0.50      : 0.13,
+                color:        isVisited ? accent    : '#555555',
+                weight:       isVisited ? 1.5       : 0.7,
+                opacity:      isVisited ? 0.9       : 0.4,
+                interactive:  false
+            }).addTo(hexLayerGroup);
         }
     }
 
-    // Zoom sur les parcours si présents (première fois seulement)
-    if (runsWithGPS.length > 0 && exploreRunLayers.length > 0) {
-        const allPoly = exploreRunLayers.filter(l => l instanceof L.Polyline);
-        if (allPoly.length > 0) {
-            try {
-                const group = L.featureGroup(allPoly);
-                exploreMap.fitBounds(group.getBounds().pad(0.2), { maxZoom: 15 });
-            } catch(e) {}
-        }
+    if (statsEl) {
+        if (visitedCount > 0)
+            statsEl.textContent = `🔷 ${visitedCount} hexagone${visitedCount>1?'s':''} exploré${visitedCount>1?'s':''} sur ${total} visible${total>1?'s':''}`;
+        else
+            statsEl.textContent = `${total} hexagone${total>1?'s':''} à explorer — Lance une course !`;
     }
 }
 
