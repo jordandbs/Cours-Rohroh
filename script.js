@@ -1872,4 +1872,4 @@ function switchPage(page) {
 // ==================== INIT ====================
 firebase.initializeApp(FIREBASE_CONFIG);
 db = firebase.firestore();
-checkSession();                                                               
+checkSession();
