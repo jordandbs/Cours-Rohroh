@@ -184,9 +184,17 @@ function saveData(d) {
   if (!currentUser || !db) return;
   const runsLight = (d.runs || []).map((r) => {
     const { _videoObjectUrl, ...rest } = r;
-    // Garder le media seulement s'il contient des URLs Storage (pas du base64 lourd)
-    const hasStorageUrl = r.media && (r.media.thumbnailUrl || r.media.fullUrl);
-    if (!hasStorageUrl) rest.media = null;
+    if (r.media) {
+      if (r.media.thumbnailUrl || r.media.fullUrl) {
+        // URLs Storage → on garde tout (juste les URLs, pas de base64)
+        rest.media = { type: r.media.type, thumbnailUrl: r.media.thumbnailUrl || null, fullUrl: r.media.fullUrl || null };
+      } else if (r.media.thumbnail) {
+        // Base64 legacy → on garde le thumbnail (déjà compressé ~30ko) mais pas fullData
+        rest.media = { type: r.media.type, thumbnail: r.media.thumbnail };
+      } else {
+        rest.media = null;
+      }
+    }
     return rest;
   });
   db.collection("users")
@@ -1697,28 +1705,66 @@ async function saveProfile() {
   const btn = document.querySelector("#profile-modal-overlay .modal-btn.save");
   if (btn) { btn.disabled = true; btn.textContent = "Envoi…"; }
 
-  const newName = document.getElementById("modal-name-input").value.trim();
-  if (newName) appData.name = newName;
+  try {
+    const newName = document.getElementById("modal-name-input").value.trim();
+    if (newName) appData.name = newName;
 
-  if (pendingAvatarDataUrl !== null) {
-    // Si c'est un base64 → upload vers Firebase Storage
-    if (pendingAvatarDataUrl !== DEFAULT_AVATAR && pendingAvatarDataUrl.startsWith("data:") && storage) {
-      try {
-        const url = await uploadToStorage(`avatars/${currentUser.username}`, pendingAvatarDataUrl);
-        appData.avatar = url;
-      } catch (e) {
-        console.warn("Upload avatar Storage:", e);
-        appData.avatar = pendingAvatarDataUrl; // fallback base64
+    if (pendingAvatarDataUrl !== null) {
+      if (pendingAvatarDataUrl !== DEFAULT_AVATAR && pendingAvatarDataUrl.startsWith("data:") && storage) {
+        try {
+          // Compresser l'avatar avant upload
+          const compressed = await compressImage(dataUrlToFile(pendingAvatarDataUrl, "avatar.jpg"), 256);
+          const toUpload = compressed || pendingAvatarDataUrl;
+          const url = await uploadToStorage(`avatars/${currentUser.username}`, toUpload);
+          appData.avatar = url;
+        } catch (e) {
+          console.warn("Upload avatar Storage:", e);
+          // Fallback : compresser en local et stocker en base64 (petit)
+          const compressed = await compressAvatarBase64(pendingAvatarDataUrl);
+          appData.avatar = compressed || pendingAvatarDataUrl;
+        }
+      } else {
+        appData.avatar = pendingAvatarDataUrl;
       }
-    } else {
-      appData.avatar = pendingAvatarDataUrl;
     }
-  }
 
-  saveData(appData);
-  renderProfile();
-  if (btn) { btn.disabled = false; btn.textContent = "Enregistrer"; }
-  document.getElementById("profile-modal-overlay").classList.remove("show");
+    saveData(appData);
+    renderProfile();
+    document.getElementById("profile-modal-overlay").classList.remove("show");
+  } catch (e) {
+    console.error("saveProfile error:", e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Enregistrer"; }
+  }
+}
+
+// Convertit un dataUrl en File (pour compressImage)
+function dataUrlToFile(dataUrl, filename) {
+  const arr = dataUrl.split(",");
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) u8arr[n] = bstr.charCodeAt(n);
+  return new File([u8arr], filename, { type: mime });
+}
+
+// Compresse un base64 avatar en JPEG petit (max 200px)
+async function compressAvatarBase64(dataUrl) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const size = 200;
+      const c = document.createElement("canvas");
+      const ratio = Math.min(size / img.width, size / img.height);
+      c.width = Math.round(img.width * ratio);
+      c.height = Math.round(img.height * ratio);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
 }
 
 // ==================== SUPPRIMER COURSE ====================
@@ -1960,14 +2006,23 @@ async function renderFeed() {
 
     el.innerHTML = allEntries.map((entry, idx) => buildFeedCard(entry, idx)).join("");
 
-    // Initialiser les mini-cartes Leaflet après le rendu
-    requestAnimationFrame(() => {
-      allEntries.forEach((entry, idx) => {
-        const positions = entry.run.positions;
-        if (positions && positions.length >= 2) {
-          initFeedMap(idx, positions);
-        }
+    // Initialiser les cartes avec IntersectionObserver (lazy, au scroll)
+    const observer = new IntersectionObserver((entries, obs) => {
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        const idx = parseInt(e.target.dataset.mapIdx);
+        const positions = allEntries[idx]?.run?.positions;
+        if (positions && positions.length >= 2) initFeedMap(idx, positions);
+        obs.unobserve(e.target);
       });
+    }, { rootMargin: "100px" });
+
+    allEntries.forEach((entry, idx) => {
+      const mapEl = document.getElementById(`feed-map-${idx}`);
+      if (mapEl && entry.run.positions && entry.run.positions.length >= 2) {
+        mapEl.dataset.mapIdx = idx;
+        observer.observe(mapEl);
+      }
     });
 
   } catch(e) {
@@ -2060,8 +2115,8 @@ function initFeedMap(idx, positions) {
   L.circleMarker(latlngs[latlngs.length - 1], { radius: 5, color: "#fff", fillColor: "#ef4444", fillOpacity: 1, weight: 2 }).addTo(map);
   setTimeout(() => {
     map.invalidateSize();
-    map.fitBounds(poly.getBounds().pad(0.2));
-  }, 50);
+    try { map.fitBounds(poly.getBounds().pad(0.2)); } catch(e) {}
+  }, 200);
   feedMaps.push(map);
 }
 
