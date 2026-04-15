@@ -2077,3 +2077,150 @@ html { background: var(--bg); }
   color: var(--text3);
   margin-top: 3px;
 }
+
+/* ===== FEED ===== */
+.feed-loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--text2);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.feed-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1.5px solid var(--card-border);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.feed-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 14px 12px;
+}
+
+.feed-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: var(--surface2);
+  cursor: pointer;
+}
+.feed-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.feed-card-meta { flex: 1; min-width: 0; }
+.feed-card-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.feed-card-name:active { opacity: 0.7; }
+.feed-card-date {
+  font-size: 12px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+/* Mini carte Leaflet */
+.feed-map {
+  width: 100%;
+  height: 180px;
+  background: var(--surface2);
+}
+
+/* Photo/vidéo */
+.feed-media {
+  width: 100%;
+  max-height: 260px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  background: #000;
+}
+.feed-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.feed-media .hi-thumb-video-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,.6);
+  pointer-events: none;
+}
+
+/* Titre & desc */
+.feed-run-title {
+  padding: 10px 14px 2px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.feed-run-desc {
+  padding: 0 14px 6px;
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.4;
+}
+
+/* Stats */
+.feed-stats {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--line);
+  margin-top: 6px;
+}
+.feed-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+.feed-stat-val {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  font-family: JetBrains Mono, monospace;
+}
+.feed-stat-lbl {
+  font-size: 10px;
+  color: var(--text3);
+  font-weight: 600;
+}
+.feed-stat-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--line);
+  margin: 0 10px;
+  flex-shrink: 0;
+}
+.feed-feeling {
+  font-size: 18px;
+  margin-left: auto;
+}

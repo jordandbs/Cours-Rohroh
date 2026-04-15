@@ -18,33 +18,14 @@
 <div class="app">
   <div class="page-container">
 
-    <!-- ÉCHAUFFEMENT -->
+    <!-- FEED -->
     <div class="page active" id="page-warmup">
       <div class="page-header">
-        <div class="page-title">Échauffement<span class="accent-dot">.</span></div>
-        <div class="page-subtitle">Prépare ton ptit corps de twirleuse</div>
+        <div class="page-title">Feed<span class="accent-dot">.</span></div>
+        <div class="page-subtitle">Les courses de tes amis</div>
       </div>
-      <div class="section-label">Programmes</div>
-      <div class="card" onclick="openDetail('warmup-express')">
-        <div class="card-row">
-          <div class="card-icon" style="background:var(--accent-glow)">🔥</div>
-          <div class="card-content"><div class="card-title">Rapide – 5 min</div><div class="card-desc">Échauffement rapide avant de courir</div></div>
-          <div class="card-badge">5 exos</div>
-        </div>
-      </div>
-      <div class="card" onclick="openDetail('warmup-full')">
-        <div class="card-row">
-          <div class="card-icon" style="background:rgba(255,161,77,.12)">⚡</div>
-          <div class="card-content"><div class="card-title">Complet – 10 min</div><div class="card-desc">Bon échauffement smr</div></div>
-          <div class="card-badge">8 exos</div>
-        </div>
-      </div>
-      <div class="card" onclick="openDetail('warmup-intense')">
-        <div class="card-row">
-          <div class="card-icon" style="background:rgba(77,166,255,.12)">💪</div>
-          <div class="card-content"><div class="card-title">Pré-compèt – 15 min</div><div class="card-desc">Sur le praticable</div></div>
-          <div class="card-badge">12 exos</div>
-        </div>
+      <div id="feed-list">
+        <div class="empty-state"><div class="emoji">🏃</div><p>Ajoute des amis en favori<br>pour voir leurs courses ici</p></div>
       </div>
     </div>
 
@@ -85,9 +66,31 @@
     <div class="page" id="page-stretch">
       <div class="page-header">
         <div class="page-title">Étirements<span class="accent-dot">.</span></div>
-        <div class="page-subtitle">Récupère un poco loco</div>
+        <div class="page-subtitle">Avant et après</div>
       </div>
-      <div class="section-label">Programmes</div>
+      <div class="section-label">Échauffement</div>
+      <div class="card" onclick="openDetail('warmup-express')">
+        <div class="card-row">
+          <div class="card-icon" style="background:var(--accent-glow)">🔥</div>
+          <div class="card-content"><div class="card-title">Rapide – 5 min</div><div class="card-desc">Échauffement rapide avant de courir</div></div>
+          <div class="card-badge">5 exos</div>
+        </div>
+      </div>
+      <div class="card" onclick="openDetail('warmup-full')">
+        <div class="card-row">
+          <div class="card-icon" style="background:rgba(255,161,77,.12)">⚡</div>
+          <div class="card-content"><div class="card-title">Complet – 10 min</div><div class="card-desc">Bon échauffement smr</div></div>
+          <div class="card-badge">8 exos</div>
+        </div>
+      </div>
+      <div class="card" onclick="openDetail('warmup-intense')">
+        <div class="card-row">
+          <div class="card-icon" style="background:rgba(77,166,255,.12)">💪</div>
+          <div class="card-content"><div class="card-title">Pré-compèt – 15 min</div><div class="card-desc">Sur le praticable</div></div>
+          <div class="card-badge">12 exos</div>
+        </div>
+      </div>
+      <div class="section-label" style="margin-top:28px">Étirements</div>
       <div class="card" onclick="openDetail('stretch-quick')">
         <div class="card-row">
           <div class="card-icon" style="background:var(--accent-glow)">🧘</div>
@@ -484,8 +487,8 @@
   <!-- Navbar -->
   <nav class="navbar">
     <div class="nav-item active" data-page="warmup" onclick="switchPage('warmup')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
-      <span class="nav-label">Ca chauffe</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor"/></svg>
+      <span class="nav-label">Feed</span>
     </div>
     <div class="nav-item" data-page="run" onclick="switchPage('run')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>

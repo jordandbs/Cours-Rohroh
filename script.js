@@ -1866,10 +1866,185 @@ function switchPage(page) {
   document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"));
   document.getElementById("page-" + page).classList.add("active");
   document.querySelector(`.nav-item[data-page="${page}"]`).classList.add("active");
+  if (page === "warmup") renderFeed();
   if (page === "run") renderHistory();
   if (page === "profile") renderProfile();
   if (page === "explore") initExploreMap();
   if (page === "amis") renderAmis();
+}
+
+// ==================== FEED ====================
+let feedMaps = []; // instances Leaflet mini-cartes à détruire lors du refresh
+
+async function renderFeed() {
+  const el = document.getElementById("feed-list");
+  if (!el) return;
+
+  const favs = appData.favorites || [];
+  if (favs.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="emoji">🏃</div><p>Ajoute des amis en favori<br>pour voir leurs courses ici</p></div>';
+    return;
+  }
+
+  el.innerHTML = '<div class="feed-loading">Chargement du feed…</div>';
+
+  // Détruire les anciennes mini-cartes Leaflet
+  feedMaps.forEach(m => { try { m.remove(); } catch(e){} });
+  feedMaps = [];
+
+  try {
+    // Fetch tous les amis en parallèle
+    const snaps = await Promise.all(favs.map(f => db.collection("users").doc(f.username).get()));
+
+    // Construire la liste de toutes les courses avec info de l'ami
+    let allEntries = [];
+    snaps.forEach((snap, i) => {
+      if (!snap.exists) return;
+      const data = snap.data();
+      const fav = favs[i];
+      const runs = data.runs || [];
+      runs.forEach(run => {
+        allEntries.push({
+          run,
+          username: fav.username,
+          name: data.name || fav.username,
+          avatar: data.avatar || fav.avatar || DEFAULT_AVATAR,
+        });
+      });
+    });
+
+    if (allEntries.length === 0) {
+      el.innerHTML = '<div class="empty-state"><div class="emoji">👟</div><p>Tes amis n\'ont pas encore couru</p></div>';
+      return;
+    }
+
+    // Trier du plus récent au plus ancien
+    allEntries.sort((a, b) => new Date(b.run.date) - new Date(a.run.date));
+    _feedEntries = allEntries;
+
+    el.innerHTML = allEntries.map((entry, idx) => buildFeedCard(entry, idx)).join("");
+
+    // Initialiser les mini-cartes Leaflet après le rendu
+    requestAnimationFrame(() => {
+      allEntries.forEach((entry, idx) => {
+        const positions = entry.run.positions;
+        if (positions && positions.length >= 2) {
+          initFeedMap(idx, positions);
+        }
+      });
+    });
+
+  } catch(e) {
+    console.warn("Feed error:", e);
+    el.innerHTML = '<div class="empty-state"><div class="emoji">😢</div><p>Erreur de chargement<br>Vérifie ta connexion</p></div>';
+  }
+}
+
+function buildFeedCard(entry, idx) {
+  const { run, name, username, avatar } = entry;
+  const months = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+  const d = new Date(run.date);
+  const dateStr = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  const dur = run.duration / 1000;
+  const m = Math.floor(dur / 60), s = Math.floor(dur % 60);
+  const dist = run.distance || 0;
+  const pace = dist > 0.01
+    ? (() => { const p = dur / dist; return `${Math.floor(p/60)}:${String(Math.floor(p%60)).padStart(2,"0")}`; })()
+    : "--:--";
+
+  const avatarHtml = isImageSrc(avatar)
+    ? `<img src="${avatar}" alt="avatar">`
+    : `<span>${avatar}</span>`;
+
+  const hasTrace = run.positions && run.positions.length >= 2;
+  const mapHtml = hasTrace
+    ? `<div class="feed-map" id="feed-map-${idx}"></div>`
+    : "";
+
+  const mediaHtml = run.media && run.media.thumbnail
+    ? `<div class="feed-media" onclick="openFeedMedia(${idx})">
+        <img src="${run.media.thumbnail}" alt="photo">
+        ${run.media.type === "video" ? '<div class="hi-thumb-video-icon">▶</div>' : ""}
+       </div>`
+    : "";
+
+  const titleHtml = run.title
+    ? `<div class="feed-run-title">${run.title}</div>` : "";
+  const descHtml = run.description
+    ? `<div class="feed-run-desc">${run.description}</div>` : "";
+  const feelHtml = run.feelingEmoji
+    ? `<span class="feed-feeling">${run.feelingEmoji}</span>` : "";
+
+  return `
+    <div class="feed-card" data-idx="${idx}">
+      <div class="feed-card-header">
+        <div class="feed-avatar" onclick="openFriendOverlay('${username}')">${avatarHtml}</div>
+        <div class="feed-card-meta">
+          <div class="feed-card-name" onclick="openFriendOverlay('${username}')">${name}</div>
+          <div class="feed-card-date">${dateStr}</div>
+        </div>
+      </div>
+      ${mapHtml}
+      ${mediaHtml}
+      ${titleHtml}
+      ${descHtml}
+      <div class="feed-stats">
+        <div class="feed-stat"><span class="feed-stat-val">${dist.toFixed(2)}</span><span class="feed-stat-lbl">km</span></div>
+        <div class="feed-stat-sep"></div>
+        <div class="feed-stat"><span class="feed-stat-val">${m}min ${s}s</span><span class="feed-stat-lbl">durée</span></div>
+        <div class="feed-stat-sep"></div>
+        <div class="feed-stat"><span class="feed-stat-val">${pace}</span><span class="feed-stat-lbl">min/km</span></div>
+        ${feelHtml}
+      </div>
+    </div>`;
+}
+
+function initFeedMap(idx, positions) {
+  const mapEl = document.getElementById(`feed-map-${idx}`);
+  if (!mapEl) return;
+  const map = L.map(`feed-map-${idx}`, {
+    zoomControl: false,
+    dragging: false,
+    touchZoom: false,
+    doubleClickZoom: false,
+    scrollWheelZoom: false,
+    boxZoom: false,
+    keyboard: false,
+    attributionControl: false,
+  });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
+  const latlngs = positions.map(p => [p.lat, p.lng]);
+  const poly = L.polyline(latlngs, {
+    color: getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#c8ff2e",
+    weight: 3,
+    opacity: 0.9,
+  }).addTo(map);
+  L.circleMarker(latlngs[0], { radius: 5, color: "#fff", fillColor: "#22c55e", fillOpacity: 1, weight: 2 }).addTo(map);
+  L.circleMarker(latlngs[latlngs.length - 1], { radius: 5, color: "#fff", fillColor: "#ef4444", fillOpacity: 1, weight: 2 }).addTo(map);
+  setTimeout(() => {
+    map.invalidateSize();
+    map.fitBounds(poly.getBounds().pad(0.2));
+  }, 50);
+  feedMaps.push(map);
+}
+
+let _feedEntries = [];
+function openFeedMedia(idx) {
+  // Récupérer la course depuis le DOM (on relit feedEntries)
+  const card = document.querySelector(`.feed-card[data-idx="${idx}"]`);
+  if (!card) return;
+  // Trouver la course dans allEntries via l'index — on stocke dans _feedEntries
+  const entry = _feedEntries[idx];
+  if (!entry || !entry.run.media) return;
+  const run = entry.run;
+  const viewer = document.getElementById("media-viewer");
+  const content = document.getElementById("media-viewer-content");
+  const info = document.getElementById("media-viewer-info");
+  content.innerHTML = run.media.type === "image"
+    ? `<img src="${run.media.fullData || run.media.thumbnail}" alt="photo">`
+    : `<img src="${run.media.thumbnail}" alt="aperçu vidéo" style="opacity:.7">`;
+  info.textContent = run.title || new Date(run.date).toLocaleDateString("fr-FR");
+  viewer.classList.add("show");
 }
 
 // ==================== AMIS ====================
