@@ -2005,7 +2005,7 @@ function renderFavorites() {
   if (!el) return;
   const favs = appData.favorites || [];
   if (favs.length === 0) {
-    el.innerHTML = `<div class="empty-state"><div class="emoji">⭐</div><p>Aucun favori encore<br><small style="color:var(--text3)">Cherche un ami et mets-le en ★</small></p></div>`;
+    el.innerHTML = `<div class="empty-state"><div class="emoji">⭐</div><p>T'as pas d'amis mskn<br><small style="color:var(--text3)">Cherche un ami et mets-le en ★</small></p></div>`;
     return;
   }
   el.innerHTML = favs.map(f => {
@@ -2070,7 +2070,47 @@ function openFriendOverlayWithData(username, data) {
   // Records de l'ami
   renderRecordsInto(runs, "friend-standard-records-list", "friend-best-runs-list");
 
+  // Historique de l'ami
+  renderFriendHistory(runs);
+
   document.getElementById("friend-overlay").classList.add("show");
+}
+
+function renderFriendHistory(runs) {
+  const el = document.getElementById("friend-history-list");
+  if (!el) return;
+  if (!runs || runs.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="emoji">👟</div><p>Aucune course va courir le mimicul</p></div>';
+    return;
+  }
+  const months = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+  // Trier du plus récent au plus ancien
+  const sorted = [...runs].sort((a, b) => new Date(b.date) - new Date(a.date));
+  el.innerHTML = sorted.map((r) => {
+    const d = new Date(r.date);
+    const dur = r.duration / 1000;
+    const m = Math.floor(dur / 60);
+    const s = Math.floor(dur % 60);
+    const dist = r.distance || 0;
+    const pace = dist > 0.01
+      ? (() => { const p = dur / dist; return `${Math.floor(p / 60)}:${String(Math.floor(p % 60)).padStart(2, "0")}`; })()
+      : "--:--";
+    const feelingBadge = r.feelingEmoji
+      ? `<span style="font-size:15px;margin-left:5px">${r.feelingEmoji}</span>`
+      : "";
+    const titleLine = r.title
+      ? `<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:1px">${r.title}</div>`
+      : "";
+    const descLine = r.description
+      ? `<div style="font-size:10px;color:var(--text3);margin-top:1px;line-height:1.3">${r.description}</div>`
+      : "";
+    return `
+      <div class="history-item">
+        <div class="hi-date"><div class="hi-day">${d.getDate()}</div><div class="hi-month">${months[d.getMonth()]}</div></div>
+        <div class="hi-info">${titleLine}<div class="hi-dist">${dist.toFixed(2)} km${feelingBadge}</div><div class="hi-meta">${m}min ${s}s</div>${descLine}</div>
+        <div class="hi-pace">${pace}<br><span style="font-size:9px;color:var(--text3)">min/km</span></div>
+      </div>`;
+  }).join("");
 }
 
 function closeFriendOverlay() {
