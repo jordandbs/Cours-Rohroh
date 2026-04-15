@@ -2076,17 +2076,18 @@ function openFriendOverlayWithData(username, data) {
   document.getElementById("friend-overlay").classList.add("show");
 }
 
+let _friendRunsSorted = [];
+
 function renderFriendHistory(runs) {
   const el = document.getElementById("friend-history-list");
   if (!el) return;
   if (!runs || runs.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="emoji">👟</div><p>Aucune course va courir le mimicul</p></div>';
+    el.innerHTML = '<div class="empty-state"><div class="emoji">👟</div><p>Aucune course enregistrée</p></div>';
     return;
   }
   const months = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
-  // Trier du plus récent au plus ancien
-  const sorted = [...runs].sort((a, b) => new Date(b.date) - new Date(a.date));
-  el.innerHTML = sorted.map((r) => {
+  _friendRunsSorted = [...runs].sort((a, b) => new Date(b.date) - new Date(a.date));
+  el.innerHTML = _friendRunsSorted.map((r, idx) => {
     const d = new Date(r.date);
     const dur = r.duration / 1000;
     const m = Math.floor(dur / 60);
@@ -2096,21 +2097,46 @@ function renderFriendHistory(runs) {
       ? (() => { const p = dur / dist; return `${Math.floor(p / 60)}:${String(Math.floor(p % 60)).padStart(2, "0")}`; })()
       : "--:--";
     const feelingBadge = r.feelingEmoji
-      ? `<span style="font-size:15px;margin-left:5px">${r.feelingEmoji}</span>`
-      : "";
+      ? `<span style="font-size:15px;margin-left:5px">${r.feelingEmoji}</span>` : "";
     const titleLine = r.title
-      ? `<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:1px">${r.title}</div>`
-      : "";
+      ? `<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:1px">${r.title}</div>` : "";
     const descLine = r.description
-      ? `<div style="font-size:10px;color:var(--text3);margin-top:1px;line-height:1.3">${r.description}</div>`
-      : "";
+      ? `<div style="font-size:10px;color:var(--text3);margin-top:1px;line-height:1.3">${r.description}</div>` : "";
+    let thumbHtml = "";
+    if (r.media && r.media.thumbnail) {
+      const isVid = r.media.type === "video";
+      thumbHtml = `
+        <div class="hi-thumb-wrap" onclick="event.stopPropagation(); openFriendMediaViewer(${idx})">
+          <img src="${r.media.thumbnail}" alt="media">
+          ${isVid ? '<div class="hi-thumb-video-icon">▶</div>' : ""}
+        </div>`;
+    }
+    const clickAttr = r.media ? `onclick="openFriendMediaViewer(${idx})"` : "";
     return `
-      <div class="history-item">
+      <div class="history-item" ${clickAttr}>
         <div class="hi-date"><div class="hi-day">${d.getDate()}</div><div class="hi-month">${months[d.getMonth()]}</div></div>
         <div class="hi-info">${titleLine}<div class="hi-dist">${dist.toFixed(2)} km${feelingBadge}</div><div class="hi-meta">${m}min ${s}s</div>${descLine}</div>
         <div class="hi-pace">${pace}<br><span style="font-size:9px;color:var(--text3)">min/km</span></div>
+        ${thumbHtml}
       </div>`;
   }).join("");
+}
+
+function openFriendMediaViewer(idx) {
+  const run = _friendRunsSorted[idx];
+  if (!run || !run.media) return;
+  const viewer = document.getElementById("media-viewer");
+  const content = document.getElementById("media-viewer-content");
+  const info = document.getElementById("media-viewer-info");
+  content.innerHTML = "";
+  if (run.media.type === "image") {
+    content.innerHTML = `<img src="${run.media.fullData || run.media.thumbnail}" alt="photo">`;
+  } else {
+    // Vidéo : objectUrl pas disponible pour les amis, on montre la miniature
+    content.innerHTML = `<img src="${run.media.thumbnail}" alt="aperçu vidéo" style="opacity:.7">`;
+  }
+  info.textContent = run.title || new Date(run.date).toLocaleDateString("fr-FR");
+  viewer.classList.add("show");
 }
 
 function closeFriendOverlay() {
@@ -2136,4 +2162,4 @@ function toggleFavoriteOverlay() {
 // ==================== INIT ====================
 firebase.initializeApp(FIREBASE_CONFIG);
 db = firebase.firestore();
-checkSession();
+checkS
