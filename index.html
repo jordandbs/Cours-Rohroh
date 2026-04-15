@@ -143,16 +143,25 @@
       </div>
     </div>
 
-    <!-- RECORD -->
-    <div class="page" id="page-record">
+    <!-- AMIS -->
+    <div class="page" id="page-amis">
       <div class="page-header">
-        <div class="page-title">Records<span class="accent-dot">.</span></div>
-        <div class="page-subtitle">Tes meilleures perfs mimi</div>
+        <div class="page-title">Amis<span class="accent-dot">.</span></div>
+        <div class="page-subtitle">Cherche les copaings</div>
       </div>
-      <div class="section-label">Distances standards</div>
-      <div id="standard-records-list"></div>
-      <div class="section-label" style="margin-top:28px">Meilleurs runs</div>
-      <div id="best-runs-list"></div>
+
+      <!-- Recherche -->
+      <div class="amis-search-wrap">
+        <input type="text" id="amis-search-input" class="amis-search-input" placeholder="Rechercher un compte..." autocomplete="off" autocapitalize="none" onkeydown="if(event.key==='Enter')searchFriend()">
+        <button class="amis-search-btn" onclick="searchFriend()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </button>
+      </div>
+      <div id="amis-search-result"></div>
+
+      <!-- Favoris -->
+      <div class="section-label" style="margin-top:28px">Favoris</div>
+      <div id="amis-favorites-list"></div>
     </div>
 
     <!-- PROFIL -->
@@ -172,7 +181,14 @@
         <div class="stat-box"><div class="stat-num" id="stat-km">0</div><div class="stat-lbl">Km total</div></div>
         <div class="stat-box"><div class="stat-num" id="stat-time">0h</div><div class="stat-lbl">Temps total</div></div>
       </div>
-      <div class="section-label">Thème</div>
+      <!-- ===== RECORDS dans le profil ===== -->
+      <div class="section-label" style="margin-top:28px">Records<span class="accent-dot">.</span></div>
+      <div class="section-label" style="font-size:11px;color:var(--text3);margin-top:4px;margin-bottom:2px">Distances standards</div>
+      <div id="profile-standard-records-list"></div>
+      <div class="section-label" style="margin-top:24px">Meilleurs runs</div>
+      <div id="profile-best-runs-list"></div>
+
+      <div class="section-label" style="margin-top:28px">Thème</div>
       <div class="theme-selector">
         <div class="theme-label">🎨 Apparence</div>
         <div class="theme-options">
@@ -436,6 +452,33 @@
     </div>
   </div>
 
+  <!-- ===== PROFIL AMI OVERLAY ===== -->
+  <div class="friend-overlay" id="friend-overlay">
+    <div class="friend-overlay-header">
+      <button class="back-btn" onclick="closeFriendOverlay()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Retour
+      </button>
+      <button class="friend-star-btn" id="friend-star-btn" onclick="toggleFavoriteOverlay()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="friend-star-icon"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </button>
+    </div>
+    <div class="friend-profile-card">
+      <div class="friend-avatar" id="friend-overlay-avatar"></div>
+      <div class="friend-name" id="friend-overlay-name"></div>
+      <div class="friend-username-lbl" id="friend-overlay-username"></div>
+      <div class="stat-grid" style="margin-top:18px">
+        <div class="stat-box"><div class="stat-num" id="friend-stat-runs">0</div><div class="stat-lbl">Courses</div></div>
+        <div class="stat-box"><div class="stat-num" id="friend-stat-km">0</div><div class="stat-lbl">Km total</div></div>
+        <div class="stat-box"><div class="stat-num" id="friend-stat-time">0h</div><div class="stat-lbl">Temps total</div></div>
+      </div>
+    </div>
+    <div class="section-label" style="margin-top:24px">Records</div>
+    <div class="section-label" style="font-size:11px;color:var(--text3);margin-top:4px;margin-bottom:2px">Distances standards</div>
+    <div id="friend-standard-records-list"></div>
+    <div class="section-label" style="margin-top:20px">Meilleurs runs</div>
+    <div id="friend-best-runs-list"></div>
+  </div>
+
   <!-- Navbar -->
   <nav class="navbar">
     <div class="nav-item active" data-page="warmup" onclick="switchPage('warmup')">
@@ -450,9 +493,9 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s8-4.5 8-10a8 8 0 0 0-16 0c0 5.5 8 10 8 10z"/><circle cx="12" cy="11" r="3"/></svg>
       <span class="nav-label">Carte</span>
     </div>
-    <div class="nav-item" data-page="record" onclick="switchPage('record')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-      <span class="nav-label">Records</span>
+    <div class="nav-item" data-page="amis" onclick="switchPage('amis')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span class="nav-label">Amis</span>
     </div>
     <div class="nav-item" data-page="stretch" onclick="switchPage('stretch')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>

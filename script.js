@@ -174,7 +174,7 @@ const DEFAULT_AVATAR = "img/rohroh.png";
 
 let db = null;
 let currentUser = null; // { username, displayName }
-let appData = { runs: [], name: "", theme: "dark", avatar: DEFAULT_AVATAR };
+let appData = { runs: [], name: "", theme: "dark", avatar: DEFAULT_AVATAR, favorites: [] };
 
 // Cache localStorage (utilisé comme fallback offline)
 function saveData(d) {
@@ -192,6 +192,7 @@ function saveData(d) {
       name: d.name,
       theme: d.theme,
       avatar: d.avatar,
+      favorites: d.favorites || [],
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     })
     .catch((e) => console.warn("Sync Firestore:", e));
@@ -270,6 +271,7 @@ async function doLogin() {
       name: data.name || id,
       theme: data.theme || "dark",
       avatar: data.avatar || DEFAULT_AVATAR,
+      favorites: data.favorites || [],
     };
     saveData(appData);
     hideAuthOverlay();
@@ -391,6 +393,7 @@ async function checkSession() {
       name: data.name || session.displayName,
       theme: data.theme || "dark",
       avatar: data.avatar || DEFAULT_AVATAR,
+      favorites: data.favorites || [],
     };
     saveData(appData);
     hideAuthOverlay();
@@ -1618,6 +1621,17 @@ function renderProfile() {
   if (statRuns) statRuns.textContent = totalRuns;
   if (statKm) statKm.textContent = totalKm.toFixed(1);
   if (statTime) statTime.textContent = totalHours + "h";
+
+  // Records intégrés au profil
+  renderProfileRecords();
+}
+
+function renderProfileRecords() {
+  renderRecordsInto(
+    appData.runs,
+    "profile-standard-records-list",
+    "profile-best-runs-list"
+  );
 }
 
 function openProfileModal() {
@@ -1750,62 +1764,59 @@ function getBestForDist(targetDist) {
 }
 
 function renderRecords() {
-  const months = [
-    "Jan",
-    "Fév",
-    "Mar",
-    "Avr",
-    "Mai",
-    "Jun",
-    "Jul",
-    "Aoû",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Déc",
-  ];
+  // Gardé pour compatibilité (plus utilisé directement depuis switchPage)
+  renderRecordsInto(appData.runs, "profile-standard-records-list", "profile-best-runs-list");
+}
+
+function renderRecordsInto(runs, stdElId, bestElId) {
+  const months = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+
+  // Helper local : meilleur temps pour une distance donnée dans un tableau de runs
+  function getBestForDistInRuns(targetDist, runsArr) {
+    let best = null, bestRun = null;
+    runsArr.forEach((run) => {
+      if (!run.distance || run.distance < targetDist || !run.duration) return;
+      const pace = run.duration / run.distance;
+      const est = pace * targetDist;
+      if (best === null || est < best) { best = est; bestRun = run; }
+    });
+    return { ms: best, run: bestRun };
+  }
 
   // ---- Section 1 : distances standards ----
-  const stdEl = document.getElementById("standard-records-list");
+  const stdEl = document.getElementById(stdElId);
   if (!stdEl) return;
   let unlockedCount = 0;
 
   stdEl.innerHTML = STANDARD_DISTANCES.map(({ label, sub, dist }) => {
-    const { ms, run } = getBestForDist(dist);
+    const { ms, run } = getBestForDistInRuns(dist, runs);
     const time = ms !== null ? fmtTime(ms) : null;
     const dateStr = run
-      ? (() => {
-          const d = new Date(run.date);
-          return `${d.getDate()} ${months[d.getMonth()]}`;
-        })()
+      ? (() => { const d = new Date(run.date); return `${d.getDate()} ${months[d.getMonth()]}`; })()
       : "";
     if (ms !== null) unlockedCount++;
     return `
-        <div class="record-row">
-          <div class="record-dist-label">${label}${sub ? `<small>${sub}</small>` : ""}</div>
-          ${
-            time
-              ? `<div class="record-time-val">${time}</div><div class="record-date-lbl">${dateStr}</div>`
-              : `<div class="record-time-val locked">🔒</div><div class="record-date-lbl"></div>`
-          }
-        </div>`;
+      <div class="record-row">
+        <div class="record-dist-label">${label}${sub ? `<small>${sub}</small>` : ""}</div>
+        ${time
+          ? `<div class="record-time-val">${time}</div><div class="record-date-lbl">${dateStr}</div>`
+          : `<div class="record-time-val locked">🔒</div><div class="record-date-lbl"></div>`
+        }
+      </div>`;
   }).join("");
 
-  // Petit résumé
   const summary = document.createElement("div");
-  summary.style.cssText =
-    "font-size:11px;color:var(--text3);text-align:center;padding:8px 0 4px;font-weight:600;";
-  summary.textContent =
-    unlockedCount > 0
-      ? `${unlockedCount} / ${STANDARD_DISTANCES.length} distances débloquées`
-      : "Faut courir pour en avoir grognasse";
+  summary.style.cssText = "font-size:11px;color:var(--text3);text-align:center;padding:8px 0 4px;font-weight:600;";
+  summary.textContent = unlockedCount > 0
+    ? `${unlockedCount} / ${STANDARD_DISTANCES.length} distances débloquées`
+    : "Faut courir pour en avoir grognasse";
   stdEl.appendChild(summary);
 
   // ---- Section 2 : meilleurs runs par allure ----
-  const bestEl = document.getElementById("best-runs-list");
+  const bestEl = document.getElementById(bestElId);
   if (!bestEl) return;
 
-  const validRuns = appData.runs
+  const validRuns = runs
     .filter((r) => r.distance > 0.5 && r.duration > 0)
     .map((r) => ({
       ...r,
@@ -1819,54 +1830,267 @@ function renderRecords() {
     .slice(0, 8);
 
   if (validRuns.length === 0) {
-    bestEl.innerHTML =
-      '<div class="empty-state"><div class="emoji">🏃</div><p>VA COURIIIIIIIR</p></div>';
+    bestEl.innerHTML = runs.length === 0
+      ? '<div class="empty-state"><div class="emoji">🏃</div><p>Aucune course</p></div>'
+      : '<div class="empty-state"><div class="emoji">🏃</div><p>VA COURIIIIIIIR</p></div>';
     return;
   }
 
   const rankLabels = ["🥇", "🥈", "🥉"];
   const rankClasses = ["gold", "silver", "bronze"];
 
-  bestEl.innerHTML = validRuns
-    .map((r, i) => {
-      const d = new Date(r.date);
-      const dist = r.distance.toFixed(2);
-      const dur = Math.floor(r.duration / 1000);
-      const m = Math.floor(dur / 60),
-        s = dur % 60;
-      const title = r.title || `${d.getDate()} ${months[d.getMonth()]}`;
-      const feel = r.feelingEmoji || "";
-      const rankLabel = rankLabels[i] || `${i + 1}`;
-      const rankCls = rankClasses[i] || "";
-      return `
-        <div class="best-run-card">
-          <div class="best-run-rank ${rankCls}">${rankLabel}</div>
-          <div class="best-run-info">
-            <div class="best-run-pace">${r.paceStr} <span style="font-size:12px;color:var(--text2);font-family:Outfit">min/km</span></div>
-            <div class="best-run-meta">${title} · ${dist} km · ${m}min ${s}s</div>
-          </div>
-          <div class="best-run-feeling">${feel}</div>
-        </div>`;
-    })
-    .join("");
+  bestEl.innerHTML = validRuns.map((r, i) => {
+    const d = new Date(r.date);
+    const dist = r.distance.toFixed(2);
+    const dur = Math.floor(r.duration / 1000);
+    const m = Math.floor(dur / 60), s = dur % 60;
+    const title = r.title || `${d.getDate()} ${months[d.getMonth()]}`;
+    const feel = r.feelingEmoji || "";
+    const rankLabel = rankLabels[i] || `${i + 1}`;
+    const rankCls = rankClasses[i] || "";
+    return `
+      <div class="best-run-card">
+        <div class="best-run-rank ${rankCls}">${rankLabel}</div>
+        <div class="best-run-info">
+          <div class="best-run-pace">${r.paceStr} <span style="font-size:12px;color:var(--text2);font-family:Outfit">min/km</span></div>
+          <div class="best-run-meta">${title} · ${dist} km · ${m}min ${s}s</div>
+        </div>
+        <div class="best-run-feeling">${feel}</div>
+      </div>`;
+  }).join("");
 }
 
 // ==================== NAV ====================
 function switchPage(page) {
-  document
-    .querySelectorAll(".page")
-    .forEach((p) => p.classList.remove("active"));
-  document
-    .querySelectorAll(".nav-item")
-    .forEach((n) => n.classList.remove("active"));
+  document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"));
   document.getElementById("page-" + page).classList.add("active");
-  document
-    .querySelector(`.nav-item[data-page="${page}"]`)
-    .classList.add("active");
+  document.querySelector(`.nav-item[data-page="${page}"]`).classList.add("active");
   if (page === "run") renderHistory();
   if (page === "profile") renderProfile();
   if (page === "explore") initExploreMap();
-  if (page === "record") renderRecords();
+  if (page === "amis") renderAmis();
+}
+
+// ==================== AMIS ====================
+let currentFriendData = null; // données de l'ami actuellement affiché dans l'overlay
+
+function renderAmis() {
+  renderFavorites();
+}
+
+async function searchFriend() {
+  const input = document.getElementById("amis-search-input");
+  const query = input.value.trim().toLowerCase();
+  const resultEl = document.getElementById("amis-search-result");
+
+  if (!query) {
+    resultEl.innerHTML = "";
+    return;
+  }
+
+  resultEl.innerHTML = `<div class="amis-loading">Recherche en cours…</div>`;
+
+  try {
+    const docSnap = await db.collection("users").doc(query).get();
+
+    if (!docSnap.exists) {
+      resultEl.innerHTML = `<div class="amis-not-found">
+        <div class="emoji" style="font-size:28px">🔍</div>
+        <p>Compte "<strong>${query}</strong>" introuvable</p>
+      </div>`;
+      return;
+    }
+
+    const data = docSnap.data();
+    renderFriendCard(resultEl, query, data, false);
+
+  } catch (e) {
+    resultEl.innerHTML = `<div class="amis-not-found"><p>Erreur de connexion 😢</p></div>`;
+    console.warn("searchFriend:", e);
+  }
+}
+
+function renderFriendCard(container, username, data, isFav) {
+  const runs = data.runs || [];
+  const totalRuns = runs.length;
+  const totalKm = runs.reduce((a, r) => a + (r.distance || 0), 0);
+  const totalMs = runs.reduce((a, r) => a + (r.duration || 0), 0);
+  const totalHours = Math.floor(totalMs / 3600000);
+  const name = data.name || username;
+  const avatar = data.avatar || "img/rohroh.png";
+  const isFavorite = isFriendFavorite(username);
+
+  const avatarHtml = isImageSrc(avatar)
+    ? `<img src="${avatar}" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+    : `<span>${avatar}</span>`;
+
+  container.innerHTML = `
+    <div class="friend-card" onclick="openFriendOverlay('${username}')">
+      <div class="friend-card-header">
+        <div class="friend-card-avatar">${avatarHtml}</div>
+        <div class="friend-card-info">
+          <div class="friend-card-name">${name}</div>
+          <div class="friend-card-handle">@${username}</div>
+        </div>
+        <button class="friend-card-star ${isFavorite ? 'active' : ''}" onclick="event.stopPropagation();toggleFavorite('${username}')" title="Favori">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="${isFavorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+        </button>
+      </div>
+      <div class="friend-card-stats">
+        <div class="friend-stat-item"><span class="friend-stat-val">${totalRuns}</span><span class="friend-stat-lbl">Courses</span></div>
+        <div class="friend-stat-item"><span class="friend-stat-val">${totalKm.toFixed(1)}</span><span class="friend-stat-lbl">Km</span></div>
+        <div class="friend-stat-item"><span class="friend-stat-val">${totalHours}h</span><span class="friend-stat-lbl">Temps</span></div>
+      </div>
+    </div>`;
+}
+
+function isFriendFavorite(username) {
+  return (appData.favorites || []).some(f => f.username === username);
+}
+
+function toggleFavorite(username) {
+  if (!appData.favorites) appData.favorites = [];
+  const idx = appData.favorites.findIndex(f => f.username === username);
+  if (idx >= 0) {
+    // Retirer des favoris
+    appData.favorites.splice(idx, 1);
+    saveData(appData);
+    renderAmis();
+    // Rafraîchir la star dans l'overlay si ouvert
+    if (currentFriendData && currentFriendData.username === username) updateFriendStarUI(username);
+    // Rafraîchir la star dans la carte de résultat
+    refreshSearchResultStar(username);
+  } else {
+    // Ajouter aux favoris — utiliser currentFriendData si disponible, sinon fetch
+    if (currentFriendData && currentFriendData.username === username) {
+      appData.favorites.push({
+        username,
+        name: currentFriendData.name || username,
+        avatar: currentFriendData.avatar || "img/rohroh.png"
+      });
+      saveData(appData);
+      renderAmis();
+      updateFriendStarUI(username);
+      refreshSearchResultStar(username);
+    } else {
+      db.collection("users").doc(username).get().then(snap => {
+        if (!snap.exists) return;
+        const d = snap.data();
+        appData.favorites.push({ username, name: d.name || username, avatar: d.avatar || "img/rohroh.png" });
+        saveData(appData);
+        renderAmis();
+        updateFriendStarUI(username);
+        refreshSearchResultStar(username);
+      });
+    }
+  }
+}
+
+function refreshSearchResultStar(username) {
+  const resultEl = document.getElementById("amis-search-result");
+  if (!resultEl || !resultEl.querySelector(".friend-card")) return;
+  const starBtn = resultEl.querySelector(".friend-card-star");
+  const starIcon = resultEl.querySelector(".friend-card-star svg");
+  if (!starBtn || !starIcon) return;
+  const isFav = isFriendFavorite(username);
+  starBtn.classList.toggle("active", isFav);
+  starIcon.setAttribute("fill", isFav ? "currentColor" : "none");
+}
+
+function renderFavorites() {
+  const el = document.getElementById("amis-favorites-list");
+  if (!el) return;
+  const favs = appData.favorites || [];
+  if (favs.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">⭐</div><p>Aucun favori encore<br><small style="color:var(--text3)">Cherche un ami et mets-le en ★</small></p></div>`;
+    return;
+  }
+  el.innerHTML = favs.map(f => {
+    const avatarHtml = isImageSrc(f.avatar)
+      ? `<img src="${f.avatar}" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+      : `<span>${f.avatar}</span>`;
+    return `
+      <div class="fav-chip" onclick="openFriendFromFav('${f.username}')">
+        <div class="fav-chip-avatar">${avatarHtml}</div>
+        <div class="fav-chip-info">
+          <div class="fav-chip-name">${f.name}</div>
+          <div class="fav-chip-handle">@${f.username}</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="1.5" style="flex-shrink:0">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+      </div>`;
+  }).join("");
+}
+
+async function openFriendFromFav(username) {
+  const snap = await db.collection("users").doc(username).get();
+  if (!snap.exists) return;
+  const data = snap.data();
+  openFriendOverlayWithData(username, data);
+}
+
+async function openFriendOverlay(username) {
+  const snap = await db.collection("users").doc(username).get();
+  if (!snap.exists) return;
+  const data = snap.data();
+  openFriendOverlayWithData(username, data);
+}
+
+function openFriendOverlayWithData(username, data) {
+  currentFriendData = { username, ...data };
+
+  const runs = data.runs || [];
+  const totalRuns = runs.length;
+  const totalKm = runs.reduce((a, r) => a + (r.distance || 0), 0);
+  const totalMs = runs.reduce((a, r) => a + (r.duration || 0), 0);
+  const totalHours = Math.floor(totalMs / 3600000);
+  const name = data.name || username;
+  const avatar = data.avatar || "img/rohroh.png";
+
+  // Avatar
+  const avatarEl = document.getElementById("friend-overlay-avatar");
+  if (isImageSrc(avatar)) {
+    avatarEl.innerHTML = `<img src="${avatar}" alt="avatar">`;
+  } else {
+    avatarEl.textContent = avatar;
+  }
+
+  document.getElementById("friend-overlay-name").textContent = name;
+  document.getElementById("friend-overlay-username").textContent = "@" + username;
+  document.getElementById("friend-stat-runs").textContent = totalRuns;
+  document.getElementById("friend-stat-km").textContent = totalKm.toFixed(1);
+  document.getElementById("friend-stat-time").textContent = totalHours + "h";
+
+  updateFriendStarUI(username);
+
+  // Records de l'ami
+  renderRecordsInto(runs, "friend-standard-records-list", "friend-best-runs-list");
+
+  document.getElementById("friend-overlay").classList.add("show");
+}
+
+function closeFriendOverlay() {
+  document.getElementById("friend-overlay").classList.remove("show");
+  currentFriendData = null;
+}
+
+function updateFriendStarUI(username) {
+  const btn = document.getElementById("friend-star-btn");
+  const icon = document.getElementById("friend-star-icon");
+  if (!btn || !icon) return;
+  const isFav = isFriendFavorite(username);
+  btn.classList.toggle("active", isFav);
+  icon.setAttribute("fill", isFav ? "currentColor" : "none");
+}
+
+function toggleFavoriteOverlay() {
+  if (!currentFriendData) return;
+  toggleFavorite(currentFriendData.username);
+  updateFriendStarUI(currentFriendData.username);
 }
 
 // ==================== INIT ====================
