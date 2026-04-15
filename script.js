@@ -1882,7 +1882,7 @@ async function renderFeed() {
 
   const favs = appData.favorites || [];
   if (favs.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="emoji">🏃</div><p>Ajoute des amis en favori<br>pour voir leurs courses ici</p></div>';
+    el.innerHTML = '<div class="empty-state"><div class="emoji">🏃</div><p>Met az en favori<br>pour voir ses courses</p></div>';
     return;
   }
 
@@ -1914,7 +1914,7 @@ async function renderFeed() {
     });
 
     if (allEntries.length === 0) {
-      el.innerHTML = '<div class="empty-state"><div class="emoji">👟</div><p>Tes amis n\'ont pas encore couru</p></div>';
+      el.innerHTML = '<div class="empty-state"><div class="emoji">👟</div><p>Tes amis n\'ont pas encore couru c\'est des feignants</p></div>';
       return;
     }
 
@@ -1936,7 +1936,7 @@ async function renderFeed() {
 
   } catch(e) {
     console.warn("Feed error:", e);
-    el.innerHTML = '<div class="empty-state"><div class="emoji">😢</div><p>Erreur de chargement<br>Vérifie ta connexion</p></div>';
+    el.innerHTML = '<div class="empty-state"><div class="emoji">😢</div><p>Erreur de chargement<br>Paye la facture SFR</p></div>';
   }
 }
 
