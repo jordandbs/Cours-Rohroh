@@ -2162,4 +2162,4 @@ function toggleFavoriteOverlay() {
 // ==================== INIT ====================
 firebase.initializeApp(FIREBASE_CONFIG);
 db = firebase.firestore();
-checkS
+checkSession();
