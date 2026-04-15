@@ -173,6 +173,7 @@ const SESSION_KEY = "rohroh_session";
 const DEFAULT_AVATAR = "img/rohroh.png";
 
 let db = null;
+let storage = null;
 let currentUser = null; // { username, displayName }
 let appData = { runs: [], name: "", theme: "dark", avatar: DEFAULT_AVATAR, favorites: [] };
 
@@ -182,7 +183,10 @@ function saveData(d) {
   // Sync Firestore en arrière-plan (on retire les médias base64 trop lourds)
   if (!currentUser || !db) return;
   const runsLight = (d.runs || []).map((r) => {
-    const { media, _videoObjectUrl, ...rest } = r;
+    const { _videoObjectUrl, ...rest } = r;
+    // Garder le media seulement s'il contient des URLs Storage (pas du base64 lourd)
+    const hasStorageUrl = r.media && (r.media.thumbnailUrl || r.media.fullUrl);
+    if (!hasStorageUrl) rest.media = null;
     return rest;
   });
   db.collection("users")
@@ -723,15 +727,16 @@ function renderHistory() {
         : "";
       // Miniature média
       let thumbHtml = "";
-      if (r.media && r.media.thumbnail) {
+      const thumb = mediaThumbnail(r.media);
+      if (thumb) {
         const isVid = r.media.type === "video";
         thumbHtml = `
             <div class="hi-thumb-wrap" onclick="event.stopPropagation(); openMediaViewer(${idx})">
-              <img src="${r.media.thumbnail}" alt="media">
+              <img src="${thumb}" alt="media">
               ${isVid ? '<div class="hi-thumb-video-icon">▶</div>' : ""}
             </div>`;
       }
-      const clickAttr = r.media ? `onclick="openMediaViewer(${idx})"` : "";
+      const clickAttr = thumb ? `onclick="openMediaViewer(${idx})"` : "";
       return `<div class="history-item" ${clickAttr}>
           <div class="hi-date"><div class="hi-day">${d.getDate()}</div><div class="hi-month">${months[d.getMonth()]}</div></div>
           <div class="hi-info">${titleLine}<div class="hi-dist">${dist.toFixed(2)} km${feelingBadge}</div><div class="hi-meta">${m}min ${s}s</div>${descLine}</div>
@@ -912,11 +917,10 @@ function openMediaViewer(runIndex) {
   if (!media) return;
 
   if (media.type === "image") {
-    content.innerHTML = `<img src="${media.fullData || media.thumbnail}" alt="photo">`;
-    info.textContent =
-      run.title || new Date(run.date).toLocaleDateString("fr-FR");
+    content.innerHTML = `<img src="${mediaFull(media)}" alt="photo">`;
+    info.textContent = run.title || new Date(run.date).toLocaleDateString("fr-FR");
   } else {
-    // Vidéo : utilise l'objectUrl en mémoire si disponible
+    // Vidéo : objectUrl en mémoire si dispo, sinon miniature
     const vurl = run._videoObjectUrl || null;
     if (vurl) {
       const vid = document.createElement("video");
@@ -925,14 +929,10 @@ function openMediaViewer(runIndex) {
       vid.playsInline = true;
       vid.autoplay = true;
       content.appendChild(vid);
-      info.textContent =
-        run.title || new Date(run.date).toLocaleDateString("fr-FR");
     } else {
-      // Plus de mémoire (appli relancée) → montre la miniature avec message
-      content.innerHTML = `<img src="${media.thumbnail}" alt="aperçu vidéo" style="opacity:.7">`;
-      info.textContent =
-        "Plus de mémoire si tu as ca ro franchement bravo redemarre lapp et ouvre ta galerie";
+      content.innerHTML = `<img src="${mediaThumbnail(media)}" alt="aperçu vidéo" style="opacity:.7">`;
     }
+    info.textContent = run.title || new Date(run.date).toLocaleDateString("fr-FR");
   }
 
   viewer.classList.add("show");
@@ -1026,16 +1026,14 @@ function selectFeeling(idx) {
   document.getElementById("btn-save-run").disabled = false;
 }
 
-function saveFinishedRun() {
+async function saveFinishedRun() {
   if (selectedFeeling === null || !finishRunData) return;
   const feelings = ["😵", "😤", "😊", "😁", "🚀"];
-  const feelNames = [
-    "OSKUR",
-    "Finito",
-    "Tranquilouuu",
-    "P'tite ruby maintenant!",
-    "EZ",
-  ];
+  const feelNames = ["OSKUR", "Finito", "Tranquilouuu", "P'tite ruby maintenant!", "EZ"];
+
+  // Bouton en loading
+  const saveBtn = document.getElementById("btn-save-run");
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Envoi…"; }
 
   // Allège les positions GPS pour le stockage
   const pts = finishRunData.positions;
@@ -1044,9 +1042,34 @@ function saveFinishedRun() {
 
   const runTitle = document.getElementById("fm-run-title").value.trim();
   const runDesc = document.getElementById("fm-run-desc").value.trim();
+  const runDate = finishRunData.date;
+
+  // Upload média vers Firebase Storage si présent
+  let mediaToSave = null;
+  if (pendingMedia) {
+    const base = `media/${currentUser.username}/${runDate}`;
+    try {
+      if (pendingMedia.type === "image" && pendingMedia.fullData && storage) {
+        const url = await uploadToStorage(base + "_full", pendingMedia.fullData);
+        const thumbUrl = await uploadToStorage(base + "_thumb", pendingMedia.thumbnail);
+        mediaToSave = { type: "image", thumbnailUrl: thumbUrl, fullUrl: url };
+      } else if (pendingMedia.type === "video" && pendingMedia.thumbnail && storage) {
+        const thumbUrl = await uploadToStorage(base + "_thumb", pendingMedia.thumbnail);
+        mediaToSave = { type: "video", thumbnailUrl: thumbUrl, fullUrl: null };
+      }
+    } catch (e) {
+      console.warn("Upload média Storage:", e);
+      // Fallback : garder en base64 local uniquement
+      mediaToSave = {
+        type: pendingMedia.type,
+        thumbnail: pendingMedia.thumbnail,
+        fullData: pendingMedia.fullData,
+      };
+    }
+  }
 
   const newRun = {
-    date: finishRunData.date,
+    date: runDate,
     duration: finishRunData.elapsed,
     distance: finishRunData.dist,
     title: runTitle || null,
@@ -1055,13 +1078,7 @@ function saveFinishedRun() {
     feelingEmoji: feelings[selectedFeeling],
     feelingName: feelNames[selectedFeeling],
     positions: savedPositions,
-    media: pendingMedia
-      ? {
-          type: pendingMedia.type,
-          thumbnail: pendingMedia.thumbnail,
-          fullData: pendingMedia.fullData,
-        }
-      : null,
+    media: mediaToSave,
   };
 
   // Garde l'objectUrl vidéo en mémoire (session uniquement)
@@ -1676,12 +1693,31 @@ function resetAvatar() {
   document.getElementById("avatar-file-input").value = "";
 }
 
-function saveProfile() {
+async function saveProfile() {
+  const btn = document.querySelector("#profile-modal-overlay .modal-btn.save");
+  if (btn) { btn.disabled = true; btn.textContent = "Envoi…"; }
+
   const newName = document.getElementById("modal-name-input").value.trim();
   if (newName) appData.name = newName;
-  if (pendingAvatarDataUrl !== null) appData.avatar = pendingAvatarDataUrl;
+
+  if (pendingAvatarDataUrl !== null) {
+    // Si c'est un base64 → upload vers Firebase Storage
+    if (pendingAvatarDataUrl !== DEFAULT_AVATAR && pendingAvatarDataUrl.startsWith("data:") && storage) {
+      try {
+        const url = await uploadToStorage(`avatars/${currentUser.username}`, pendingAvatarDataUrl);
+        appData.avatar = url;
+      } catch (e) {
+        console.warn("Upload avatar Storage:", e);
+        appData.avatar = pendingAvatarDataUrl; // fallback base64
+      }
+    } else {
+      appData.avatar = pendingAvatarDataUrl;
+    }
+  }
+
   saveData(appData);
   renderProfile();
+  if (btn) { btn.disabled = false; btn.textContent = "Enregistrer"; }
   document.getElementById("profile-modal-overlay").classList.remove("show");
 }
 
@@ -1961,9 +1997,10 @@ function buildFeedCard(entry, idx) {
     ? `<div class="feed-map" id="feed-map-${idx}"></div>`
     : "";
 
-  const mediaHtml = run.media && run.media.thumbnail
+  const feedThumb = mediaThumbnail(run.media);
+  const mediaHtml = feedThumb
     ? `<div class="feed-media" onclick="openFeedMedia(${idx})">
-        <img src="${run.media.thumbnail}" alt="photo">
+        <img src="${feedThumb}" alt="photo">
         ${run.media.type === "video" ? '<div class="hi-thumb-video-icon">▶</div>' : ""}
        </div>`
     : "";
@@ -1984,10 +2021,10 @@ function buildFeedCard(entry, idx) {
           <div class="feed-card-date">${dateStr}</div>
         </div>
       </div>
-      ${mapHtml}
-      ${mediaHtml}
       ${titleHtml}
       ${descHtml}
+      ${mapHtml}
+      ${mediaHtml}
       <div class="feed-stats">
         <div class="feed-stat"><span class="feed-stat-val">${dist.toFixed(2)}</span><span class="feed-stat-lbl">km</span></div>
         <div class="feed-stat-sep"></div>
@@ -2041,8 +2078,8 @@ function openFeedMedia(idx) {
   const content = document.getElementById("media-viewer-content");
   const info = document.getElementById("media-viewer-info");
   content.innerHTML = run.media.type === "image"
-    ? `<img src="${run.media.fullData || run.media.thumbnail}" alt="photo">`
-    : `<img src="${run.media.thumbnail}" alt="aperçu vidéo" style="opacity:.7">`;
+    ? `<img src="${mediaFull(run.media)}" alt="photo">`
+    : `<img src="${mediaThumbnail(run.media)}" alt="aperçu vidéo" style="opacity:.7">`;
   info.textContent = run.title || new Date(run.date).toLocaleDateString("fr-FR");
   viewer.classList.add("show");
 }
@@ -2278,15 +2315,16 @@ function renderFriendHistory(runs) {
     const descLine = r.description
       ? `<div style="font-size:10px;color:var(--text3);margin-top:1px;line-height:1.3">${r.description}</div>` : "";
     let thumbHtml = "";
-    if (r.media && r.media.thumbnail) {
+    const friendThumb = mediaThumbnail(r.media);
+    if (friendThumb) {
       const isVid = r.media.type === "video";
       thumbHtml = `
         <div class="hi-thumb-wrap" onclick="event.stopPropagation(); openFriendMediaViewer(${idx})">
-          <img src="${r.media.thumbnail}" alt="media">
+          <img src="${friendThumb}" alt="media">
           ${isVid ? '<div class="hi-thumb-video-icon">▶</div>' : ""}
         </div>`;
     }
-    const clickAttr = r.media ? `onclick="openFriendMediaViewer(${idx})"` : "";
+    const clickAttr = friendThumb ? `onclick="openFriendMediaViewer(${idx})"` : "";
     return `
       <div class="history-item" ${clickAttr}>
         <div class="hi-date"><div class="hi-day">${d.getDate()}</div><div class="hi-month">${months[d.getMonth()]}</div></div>
@@ -2305,10 +2343,10 @@ function openFriendMediaViewer(idx) {
   const info = document.getElementById("media-viewer-info");
   content.innerHTML = "";
   if (run.media.type === "image") {
-    content.innerHTML = `<img src="${run.media.fullData || run.media.thumbnail}" alt="photo">`;
+    content.innerHTML = `<img src="${mediaFull(run.media)}" alt="photo">`;
   } else {
     // Vidéo : objectUrl pas disponible pour les amis, on montre la miniature
-    content.innerHTML = `<img src="${run.media.thumbnail}" alt="aperçu vidéo" style="opacity:.7">`;
+    content.innerHTML = `<img src="${mediaThumbnail(run.media)}" alt="aperçu vidéo" style="opacity:.7">`;
   }
   info.textContent = run.title || new Date(run.date).toLocaleDateString("fr-FR");
   viewer.classList.add("show");
@@ -2337,4 +2375,24 @@ function toggleFavoriteOverlay() {
 // ==================== INIT ====================
 firebase.initializeApp(FIREBASE_CONFIG);
 db = firebase.firestore();
+storage = firebase.storage();
 checkSession();
+
+// Upload un dataUrl vers Firebase Storage, retourne l'URL publique
+async function uploadToStorage(path, dataUrl) {
+  const ref = storage.ref(path);
+  await ref.putString(dataUrl, "data_url");
+  return await ref.getDownloadURL();
+}
+
+// Retourne la miniature affichable (URL Storage ou base64 legacy)
+function mediaThumbnail(media) {
+  if (!media) return null;
+  return media.thumbnailUrl || media.thumbnail || null;
+}
+
+// Retourne l'URL complète pour le viewer (URL Storage ou base64 legacy)
+function mediaFull(media) {
+  if (!media) return null;
+  return media.fullUrl || media.thumbnailUrl || media.fullData || media.thumbnail || null;
+}
