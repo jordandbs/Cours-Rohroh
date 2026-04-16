@@ -1043,6 +1043,8 @@ async function saveFinishedRun() {
   const saveBtn = document.getElementById("btn-save-run");
   if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Envoi…"; }
 
+  try {
+
   // Allège les positions GPS pour le stockage
   const pts = finishRunData.positions;
   const step = pts.length > 120 ? Math.ceil(pts.length / 120) : 1;
@@ -1052,28 +1054,14 @@ async function saveFinishedRun() {
   const runDesc = document.getElementById("fm-run-desc").value.trim();
   const runDate = finishRunData.date;
 
-  // Upload média vers Firebase Storage si présent
+  // Sauvegarde immédiate en base64 (ne bloque pas sur l'upload Storage)
   let mediaToSave = null;
   if (pendingMedia) {
-    const base = `media/${currentUser.username}/${runDate}`;
-    try {
-      if (pendingMedia.type === "image" && pendingMedia.fullData && storage) {
-        const url = await uploadToStorage(base + "_full", pendingMedia.fullData);
-        const thumbUrl = await uploadToStorage(base + "_thumb", pendingMedia.thumbnail);
-        mediaToSave = { type: "image", thumbnailUrl: thumbUrl, fullUrl: url };
-      } else if (pendingMedia.type === "video" && pendingMedia.thumbnail && storage) {
-        const thumbUrl = await uploadToStorage(base + "_thumb", pendingMedia.thumbnail);
-        mediaToSave = { type: "video", thumbnailUrl: thumbUrl, fullUrl: null };
-      }
-    } catch (e) {
-      console.warn("Upload média Storage:", e);
-      // Fallback : garder en base64 local uniquement
-      mediaToSave = {
-        type: pendingMedia.type,
-        thumbnail: pendingMedia.thumbnail,
-        fullData: pendingMedia.fullData,
-      };
-    }
+    mediaToSave = {
+      type: pendingMedia.type,
+      thumbnail: pendingMedia.thumbnail,
+      fullData: pendingMedia.type === "image" ? pendingMedia.fullData : null,
+    };
   }
 
   const newRun = {
@@ -1096,6 +1084,35 @@ async function saveFinishedRun() {
 
   appData.runs.unshift(newRun);
   saveData(appData);
+
+  // Upload Storage en arrière-plan (sans bloquer la sauvegarde)
+  if (pendingMedia && storage) {
+    const base = `media/${currentUser.username}/${runDate}`;
+    const mediaSnapshot = { ...pendingMedia };
+    (async () => {
+      try {
+        let updatedMedia = null;
+        if (mediaSnapshot.type === "image" && mediaSnapshot.fullData) {
+          const fullUrl = await uploadToStorage(base + "_full", mediaSnapshot.fullData);
+          const thumbUrl = await uploadToStorage(base + "_thumb", mediaSnapshot.thumbnail);
+          updatedMedia = { type: "image", thumbnailUrl: thumbUrl, fullUrl };
+        } else if (mediaSnapshot.type === "video" && mediaSnapshot.thumbnail) {
+          const thumbUrl = await uploadToStorage(base + "_thumb", mediaSnapshot.thumbnail);
+          updatedMedia = { type: "video", thumbnailUrl: thumbUrl, fullUrl: null };
+        }
+        if (updatedMedia) {
+          const idx = appData.runs.findIndex(r => r.date === runDate);
+          if (idx !== -1) {
+            appData.runs[idx].media = updatedMedia;
+            saveData(appData);
+            renderHistory();
+          }
+        }
+      } catch (e) {
+        console.warn("Upload média Storage (background):", e);
+      }
+    })();
+  }
   visitedHexCache = null; // force recalcul des hexagones visités
 
   // Reset complet
@@ -1118,6 +1135,10 @@ async function saveFinishedRun() {
   if (explorerMap) {
     visitedHexCache = null;
     renderHexGrid();
+  }
+  } catch (e) {
+    console.error("saveFinishedRun error:", e);
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "Sauvegarder"; }
   }
 }
 
