@@ -62,13 +62,13 @@
       </div>
     </div>
 
-    <!-- ÉTIREMENT -->
-    <div class="page" id="page-stretch">
+    <!-- ÉCHAUFFEMENT -->
+    <div class="page" id="page-chauffe">
       <div class="page-header">
-        <div class="page-title">Étirements<span class="accent-dot">.</span></div>
-        <div class="page-subtitle">Avant et après</div>
+        <div class="page-title">Échauffement<span class="accent-dot">.</span></div>
+        <div class="page-subtitle">Prépare ton ptit corps de twirleuse</div>
       </div>
-      <div class="section-label">Échauffement</div>
+      <div class="section-label">Programmes</div>
       <div class="card" onclick="openDetail('warmup-express')">
         <div class="card-row">
           <div class="card-icon" style="background:var(--accent-glow)">🔥</div>
@@ -90,7 +90,15 @@
           <div class="card-badge">12 exos</div>
         </div>
       </div>
-      <div class="section-label" style="margin-top:28px">Étirements</div>
+    </div>
+
+    <!-- ÉTIREMENT -->
+    <div class="page" id="page-stretch">
+      <div class="page-header">
+        <div class="page-title">Étirements<span class="accent-dot">.</span></div>
+        <div class="page-subtitle">Récupère un poco loco</div>
+      </div>
+      <div class="section-label">Programmes</div>
       <div class="card" onclick="openDetail('stretch-quick')">
         <div class="card-row">
           <div class="card-icon" style="background:var(--accent-glow)">🧘</div>
@@ -489,6 +497,10 @@
     <div class="nav-item active" data-page="warmup" onclick="switchPage('warmup')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor"/></svg>
       <span class="nav-label">Feed</span>
+    </div>
+    <div class="nav-item" data-page="chauffe" onclick="switchPage('chauffe')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
+      <span class="nav-label">Ca chauffe</span>
     </div>
     <div class="nav-item" data-page="run" onclick="switchPage('run')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>

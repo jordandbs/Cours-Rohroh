@@ -1950,6 +1950,7 @@ function switchPage(page) {
   document.querySelector(`.nav-item[data-page="${page}"]`).classList.add("active");
   if (page === "warmup") renderFeed();
   if (page === "run") renderHistory();
+  // "chauffe" n'a pas de rendu dynamique, les cartes sont statiques
   if (page === "profile") renderProfile();
   if (page === "explore") initExploreMap();
   if (page === "amis") renderAmis();
